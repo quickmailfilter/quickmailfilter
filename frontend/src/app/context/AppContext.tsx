@@ -25,8 +25,7 @@ import {
   addDoc,
   Timestamp,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from "../config/firebaseConfig";
+import { auth, db } from "../config/firebaseConfig";
 import axios from "axios";
 import { toast } from "sonner";
 
@@ -439,7 +438,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Upload bulk file to Firebase Storage
+  // Upload bulk file to Firebase Storage (DISABLED - CORS issues)
   const uploadBulkFile = async (
     file: File,
     extractedEmails?: string[],
@@ -448,31 +447,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("User not authenticated");
     }
 
-    let fileUrl = "";
-    try {
-      // Upload file to Firebase Storage
-      const storageRef = ref(
-        storage,
-        `bulk-uploads/${user.id}/${Date.now()}-${file.name}`,
-      );
-      await uploadBytes(storageRef, file);
-      fileUrl = await getDownloadURL(storageRef);
-    } catch (error: any) {
-      console.error("Firebase Storage Error (CORS or permissions):", error);
-      // If it's a CORS error, we'll still proceed since we have the emails parsed
-      // This allows the user to continue while they fix their Firebase CORS settings
-      toast.warning(
-        "Storage upload blocked by CORS. Processing from memory instead.",
-      );
-      console.warn(
-        "Proceeding without raw file storage. Check Firebase Storage CORS settings.",
-      );
-    }
+    // Firebase Storage is temporarily disabled due to CORS restrictions
+    // File will be processed from memory instead
+    const fileUrl = ""; // No file URL since we're skipping Firebase Storage
+
+    toast.success("Firebase Storage skipped. Processing emails from memory...");
 
     try {
       const totalEmails = extractedEmails?.length || 0;
 
-      // Create bulk upload document in Firestore
+      // Create bulk upload document in Firestore (skipping file upload)
       const bulkDocRef = await addDoc(collection(db, "bulkUploads"), {
         filename: file.name,
         totalEmails,
@@ -484,7 +468,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         status: "pending" as const,
         uploadedAt: Timestamp.now(),
         userId: user.id,
-        fileUrl,
+        fileUrl: "", // No file URL since Firebase Storage is disabled
         emails: extractedEmails || [],
         results: [],
       });
@@ -501,7 +485,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         status: "pending",
         uploadedAt: new Date(),
         userId: user.id,
-        fileUrl,
+        fileUrl: "", // No file URL
         emails: extractedEmails || [],
         results: [],
       };
@@ -510,7 +494,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return newUpload;
     } catch (error) {
       console.error("File upload error:", error);
-      throw new Error("Failed to upload file");
+      throw new Error("Failed to process bulk upload");
     }
   };
 

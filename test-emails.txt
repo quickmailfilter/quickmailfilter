@@ -1,0 +1,101 @@
+VALID EMAILS
+john.doe@gmail.com
+sarah.smith@outlook.com
+michael.johnson@yahoo.com
+emily.brown@hotmail.com
+david.wilson@company.com
+jessica.taylor@example.org
+robert.anderson@domain.net
+amanda.thomas@mail.co.uk
+christopher.white@gmail.com
+michelle.harris@yahoo.com
+
+VALID PROFESSIONAL EMAILS
+admin@company.com
+info@company.com
+support@company.com
+sales@company.com
+hello@startup.io
+contact@business.com
+team@organization.net
+noreply@service.com
+notifications@app.com
+feedback@platform.com
+
+ROLE-BASED EMAILS (Will be flagged as role emails)
+admin@gmail.com
+support@example.com
+sales@company.com
+hello@startup.com
+info@business.com
+noreply@gmail.com
+contact@yahoo.com
+feedback@outlook.com
+webmaster@company.com
+postmaster@domain.com
+
+DISPOSABLE EMAIL ADDRESSES (Will be flagged as disposable)
+test@10minutemail.com
+user@tempmail.com
+email@throwaway.com
+temp@guerrillamail.com
+mail@mailinator.com
+fake@sharklasers.com
+spam@yopmail.com
+demo@maildrop.cc
+example@trashmail.com
+random@fakeinbox.com
+
+INVALID EMAILS (Bad format)
+invalid.email
+notanemail@
+@nodomain.com
+user@.com
+user name@gmail.com
+user@domain
+test@@gmail.com
+user@domain..com
+user+tag@
+@gmail.com
+
+RISKY/SUSPICIOUS EMAILS
+test@virus.com
+spam@malware.net
+phish@suspicious.com
+fraud@badomain.net
+exploit@dangerous.com
+
+REAL COMPANY DOMAINS
+john@apple.com
+sarah@microsoft.com
+alex@google.com
+emma@amazon.com
+james@facebook.com
+olivia@netflix.com
+noah@uber.com
+sophia@airbnb.com
+liam@stripe.com
+ava@slack.com
+
+EDUCATIONAL EMAILS
+student@university.edu
+professor@college.edu
+admin@school.org
+contact@education.ac.uk
+
+INTERNATIONAL DOMAINS
+user@example.de
+test@example.fr
+demo@example.jp
+contact@example.au
+info@example.ch
+
+EDGE CASES
+a@b.co
+test.email.with.multiple.dots@example.com
+user+tag@gmail.com
+first.last@sub.domain.com
+_underscore@example.com
+123@example.com
+user123@example.com
+test.2024@company.com
