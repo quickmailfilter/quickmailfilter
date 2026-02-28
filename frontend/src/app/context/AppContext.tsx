@@ -130,7 +130,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const VALIDATOR_API_URL =
     typeof window !== "undefined" &&
     window.location.hostname === "quickmailfilter.com"
-      ? "https://quickmailfilter.com/api"
+      ? "https://quickmailfilter.com"
       : "http://localhost:3004";
   const QUOTA_LIMITS = {
     free: 1000,
