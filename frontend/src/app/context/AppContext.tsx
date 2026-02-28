@@ -126,8 +126,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [allUsers] = useState<User[]>([]);
   const [allVerifications] = useState<EmailVerification[]>([]);
 
+  // Hardcoded API URL - use production on deployed VPS, localhost for dev
   const VALIDATOR_API_URL =
-    import.meta.env.VITE_VALIDATOR_API_URL || "http://localhost:3004";
+    typeof window !== "undefined" &&
+    window.location.hostname === "quickmailfilter.com"
+      ? "https://quickmailfilter.com/api"
+      : "http://localhost:3004";
   const QUOTA_LIMITS = {
     free: 1000,
     business: 50000,
