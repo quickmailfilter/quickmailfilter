@@ -1,0 +1,62 @@
+{
+  "name": "deep-email-validator",
+  "version": "0.1.22",
+  "bin": "server.js",
+  "files": [
+    "dist/**/*"
+  ],
+  "description": "Validates emails based on regex, common typos, disposable email blacklists, DNS records and SMTP server response.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "keywords": [
+    "email-validation",
+    "email-typos",
+    "email-regex",
+    "disposable-emails",
+    "smtp",
+    "mx-records"
+  ],
+  "scripts": {
+    "start": "node server.js",
+    "build": "tsc",
+    "watch-node": "nodemon server.js",
+    "test": "jest --verbose",
+    "watch-test": "yarn test -- --watchAll",
+    "watch-ts": "tsc -w",
+    "lint": "tsc --noEmit && eslint \"**/*.{js,ts}\" --quiet --fix",
+    "debug": "yarn build && yarn watch-debug",
+    "run-debug": "nodemon --inspect dist/server.js"
+  },
+  "dependencies": {
+    "@types/disposable-email-domains": "^1.0.1",
+    "axios": "^0.24.0",
+    "cors": "^2.8.5",
+    "disposable-email-domains": "^1.0.59",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "mailcheck": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/eslint": "^6.1.1",
+    "@types/jest": "^27.5.2",
+    "@types/mailcheck": "^1.1.31",
+    "@types/node": "^12.7.8",
+    "@typescript-eslint/eslint-plugin": "^2.3.1",
+    "@typescript-eslint/parser": "^2.3.1",
+    "eslint": "^6.4.0",
+    "jest": "^27.0.0",
+    "nodemon": "^2.0.15",
+    "prettier": "^2.5.1",
+    "ts-jest": "^27.1.5",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.6.4"
+  },
+  "pkg": {
+    "targets": ["node18-win-x64"],
+    "output": "email-validator",
+    "assets": ["dist/**/*", ".env"],
+    "scripts": ["dist/**/*.js"],
+    "compress": "Brotli"
+  }
+}
