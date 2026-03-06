@@ -1,39 +1,63 @@
-import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Button } from '../components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Progress } from '../components/ui/progress';
-import { Badge } from '../components/ui/badge';
-import { User, Lock, CreditCard, Key, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
-import { Alert, AlertDescription } from '../components/ui/alert';
+import React, { useState } from "react";
+import { useApp } from "../context/AppContext";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Button } from "../components/ui/button";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { Progress } from "../components/ui/progress";
+import { Badge } from "../components/ui/badge";
+import { User, Lock, CreditCard, Key, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Link } from "react-router-dom";
 
 export const UserSettingsPage = () => {
-  const { user } = useApp();
-  const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { user, updateUserProfile, updateUserPassword, payments } = useApp();
+  const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Profile updated successfully!');
+    setProfileLoading(true);
+    await updateUserProfile(name, email);
+    setProfileLoading(false);
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error("Passwords do not match");
       return;
     }
-    toast.success('Password changed successfully!');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    setPasswordLoading(true);
+    const success = await updateUserPassword(currentPassword, newPassword);
+    if (success) {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+    setPasswordLoading(false);
   };
 
   const quotaPercentage = user ? (user.usedQuota / user.monthlyQuota) * 100 : 0;
@@ -42,27 +66,36 @@ export const UserSettingsPage = () => {
     <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6 sm:space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-[#1E3A8A]">Account Settings</h1>
-        <p className="text-gray-600 text-sm sm:text-base">Manage your account and preferences</p>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-[#1E3A8A]">
+          Account Settings
+        </h1>
+        <p className="text-gray-600 text-sm sm:text-base">
+          Manage your account and preferences
+        </p>
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="flex overflow-x-auto sm:grid w-full sm:grid-cols-4 no-scrollbar bg-gray-100/50 p-1 rounded-xl">
-          <TabsTrigger value="profile" className="flex-1 min-w-[100px] sm:min-w-0">
+        <TabsList className="flex overflow-x-auto sm:grid w-full sm:grid-cols-3 no-scrollbar bg-gray-100 p-1.5 rounded-2xl h-14">
+          <TabsTrigger
+            value="profile"
+            className="flex-1 min-w-[100px] sm:min-w-0"
+          >
             <User className="w-4 h-4 mr-2" />
             <span className="truncate">Profile</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex-1 min-w-[100px] sm:min-w-0">
+          <TabsTrigger
+            value="security"
+            className="flex-1 min-w-[100px] sm:min-w-0"
+          >
             <Lock className="w-4 h-4 mr-2" />
             <span className="truncate">Security</span>
           </TabsTrigger>
-          <TabsTrigger value="usage" className="flex-1 min-w-[130px] sm:min-w-0">
+          <TabsTrigger
+            value="usage"
+            className="flex-1 min-w-[130px] sm:min-w-0"
+          >
             <CreditCard className="w-4 h-4 mr-2" />
             <span className="truncate text-xs sm:text-sm">Usage & Plan</span>
-          </TabsTrigger>
-          <TabsTrigger value="api" className="flex-1 min-w-[100px] sm:min-w-0">
-            <Key className="w-4 h-4 mr-2" />
-            <span className="truncate">API</span>
           </TabsTrigger>
         </TabsList>
 
@@ -71,7 +104,9 @@ export const UserSettingsPage = () => {
           <Card className="border-[#E5E7EB]">
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
-              <CardDescription>Update your personal information</CardDescription>
+              <CardDescription>
+                Update your personal information
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleUpdateProfile} className="space-y-4">
@@ -108,8 +143,12 @@ export const UserSettingsPage = () => {
                   </div>
                 </div>
 
-                <Button type="submit" className="bg-[#2563EB] hover:bg-[#1E3A8A]">
-                  Save Changes
+                <Button
+                  type="submit"
+                  className="bg-[#2563EB] hover:bg-[#1E3A8A]"
+                  disabled={profileLoading}
+                >
+                  {profileLoading ? "Saving..." : "Save Changes"}
                 </Button>
               </form>
             </CardContent>
@@ -121,7 +160,9 @@ export const UserSettingsPage = () => {
           <Card className="border-[#E5E7EB]">
             <CardHeader>
               <CardTitle>Change Password</CardTitle>
-              <CardDescription>Keep your account secure with a strong password</CardDescription>
+              <CardDescription>
+                Keep your account secure with a strong password
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleChangePassword} className="space-y-4">
@@ -158,8 +199,12 @@ export const UserSettingsPage = () => {
                   />
                 </div>
 
-                <Button type="submit" className="bg-[#2563EB] hover:bg-[#1E3A8A]">
-                  Update Password
+                <Button
+                  type="submit"
+                  className="bg-[#2563EB] hover:bg-[#1E3A8A]"
+                  disabled={passwordLoading}
+                >
+                  {passwordLoading ? "Updating..." : "Update Password"}
                 </Button>
               </form>
             </CardContent>
@@ -171,7 +216,9 @@ export const UserSettingsPage = () => {
           <Card className="border-[#E5E7EB]">
             <CardHeader className="px-4 sm:px-6">
               <CardTitle>Current Plan</CardTitle>
-              <CardDescription>Manage your subscription and usage</CardDescription>
+              <CardDescription>
+                Manage your subscription and usage
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 px-4 sm:px-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-blue-50 border border-blue-100 gap-4">
@@ -180,24 +227,35 @@ export const UserSettingsPage = () => {
                     {user?.plan} Plan
                   </div>
                   <div className="text-sm text-gray-600 font-medium">
-                    {user?.monthlyQuota.toLocaleString()} verifications per month
+                    {user?.monthlyQuota.toLocaleString()} verifications per
+                    month
                   </div>
                 </div>
-                <Button variant="outline" className="border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB] hover:text-white transition-all">
+                <Button
+                  variant="outline"
+                  className="border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB] hover:text-white transition-all"
+                >
                   Upgrade Plan
                 </Button>
               </div>
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-500 font-medium">Monthly Usage</span>
+                  <span className="text-gray-500 font-medium">
+                    Monthly Usage
+                  </span>
                   <span className="font-bold text-[#1E3A8A]">
-                    {user?.usedQuota.toLocaleString()} / {user?.monthlyQuota.toLocaleString()} ({quotaPercentage.toFixed(1)}%)
+                    {user?.usedQuota.toLocaleString()} /{" "}
+                    {user?.monthlyQuota.toLocaleString()} (
+                    {quotaPercentage.toFixed(1)}%)
                   </span>
                 </div>
                 <Progress value={quotaPercentage} className="h-3" />
                 <p className="text-xs sm:text-sm text-gray-500 font-medium">
-                  {user ? (user.monthlyQuota - user.usedQuota).toLocaleString() : 0} verifications remaining this month
+                  {user
+                    ? (user.monthlyQuota - user.usedQuota).toLocaleString()
+                    : 0}{" "}
+                  verifications remaining this month
                 </p>
               </div>
 
@@ -205,8 +263,8 @@ export const UserSettingsPage = () => {
                 <Alert className="border-amber-200 bg-amber-50">
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-amber-800 font-medium">
-                    You're using {quotaPercentage.toFixed(0)}% of your monthly quota. 
-                    Consider upgrading to avoid interruptions.
+                    You're using {quotaPercentage.toFixed(0)}% of your monthly
+                    quota. Consider upgrading to avoid interruptions.
                   </AlertDescription>
                 </Alert>
               )}
@@ -215,57 +273,62 @@ export const UserSettingsPage = () => {
 
           <Card className="border-[#E5E7EB]">
             <CardHeader className="px-4 sm:px-6">
-              <CardTitle>Billing Information</CardTitle>
-              <CardDescription>Manage your payment methods</CardDescription>
+              <CardTitle>Billing & Payment History</CardTitle>
+              <CardDescription>Your subscription payments</CardDescription>
             </CardHeader>
-            <CardContent className="p-6 sm:p-10">
-              <div className="text-center py-4">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CreditCard className="w-8 h-8 text-gray-400 opacity-50" />
+            <CardContent className="px-4 sm:px-6 pb-6">
+              {user?.plan === "free" ? (
+                <div className="text-center py-6">
+                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CreditCard className="w-8 h-8 text-blue-400" />
+                  </div>
+                  <p className="text-gray-500 mb-4 font-medium">
+                    You are on the free plan
+                  </p>
+                  <Link to="/pricing">
+                    <Button className="bg-[#2563EB] hover:bg-[#1E3A8A]">
+                      Upgrade Plan
+                    </Button>
+                  </Link>
                 </div>
-                <p className="text-gray-500 mb-6 font-medium">No payment method on file</p>
-                <Button variant="outline" className="border-gray-200 hover:bg-gray-50 transition-all">
-                  Add Payment Method
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* API Tab */}
-        <TabsContent value="api" className="space-y-6">
-          <Card className="border-[#E5E7EB]">
-            <CardHeader className="px-4 sm:px-6">
-              <CardTitle>API Access</CardTitle>
-              <CardDescription>Manage your API keys and integrations</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 px-4 sm:px-6">
-              <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-bold text-gray-700 text-sm italic uppercase tracking-wider">Secret API Key</span>
-                  <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-none">Active</Badge>
-                </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <Input value="vfm_••••••••••••••••••••1234" readOnly className="font-mono text-sm bg-white border-gray-200" />
-                  <Button variant="outline" size="sm" className="shrink-0 border-gray-200">Copy Key</Button>
-                </div>
-                <p className="text-xs text-gray-400 mt-3 font-medium">
-                  Last used: Never
+              ) : payments.length === 0 ? (
+                <p className="text-gray-500 text-sm py-4">
+                  No payment records found.
                 </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button variant="outline" className="flex-1 border-gray-200 h-11">Regenerate Key</Button>
-                <Button variant="outline" className="flex-1 border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-100 h-11">Revoke Access</Button>
-              </div>
-
-              <div className="pt-6 border-t border-gray-100">
-                <h4 className="font-bold text-[#1E3A8A] mb-2 uppercase text-xs tracking-widest">Documentation</h4>
-                <p className="text-sm text-gray-500 mb-4 font-medium leading-relaxed">
-                  Learn how to integrate VerifyMail API into your applications with our comprehensive guides.
-                </p>
-                <Button variant="outline" className="w-full sm:w-auto border-[#2563EB] text-[#2563EB]">View API Docs</Button>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  {payments.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50"
+                    >
+                      <div>
+                        <div className="font-semibold capitalize text-gray-800">
+                          {p.plan} Plan
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {p.paymentDate.toLocaleDateString()} ·{" "}
+                          {p.transactionId}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-gray-900">
+                          ₹{p.amount.toLocaleString()}
+                        </div>
+                        <Badge
+                          className={
+                            p.status === "success"
+                              ? "bg-green-100 text-green-700 border-none text-xs"
+                              : "bg-red-100 text-red-700 border-none text-xs"
+                          }
+                        >
+                          {p.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -275,17 +338,22 @@ export const UserSettingsPage = () => {
       <Card className="border-red-200 bg-red-50/20">
         <CardHeader className="px-4 sm:px-6">
           <CardTitle className="text-red-700 font-bold">Danger Zone</CardTitle>
-          <CardDescription className="text-red-600/70">Irreversible account actions</CardDescription>
+          <CardDescription className="text-red-600/70">
+            Irreversible account actions
+          </CardDescription>
         </CardHeader>
         <CardContent className="px-4 sm:px-6 pb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="flex-1">
               <div className="font-bold text-red-800 mb-1">Delete Account</div>
               <div className="text-sm text-red-600/80 font-medium">
-                Permanently delete your account and all associated verification data. This action cannot be undone.
+                Permanently delete your account and all associated verification
+                data. This action cannot be undone.
               </div>
             </div>
-            <Button variant="destructive" className="w-full sm:w-auto shadow-lg shadow-red-200">Delete Account</Button>
+            <Button className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-200">
+              Delete Account
+            </Button>
           </div>
         </CardContent>
       </Card>

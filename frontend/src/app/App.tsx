@@ -1,45 +1,50 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AppProvider, useApp } from './context/AppContext';
-import { Toaster } from './components/ui/sonner';
-import { useEffect, useState } from 'react';
-import { Menu, ShieldCheck } from 'lucide-react';
-import AOS from 'aos';
-import 'aos/dist/aos.css';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { AppProvider, useApp } from "./context/AppContext";
+import { Toaster } from "./components/ui/sonner";
+import { useEffect, useState } from "react";
+import { Menu, ShieldCheck } from "lucide-react";
+import AOS from "aos";
+import "aos/dist/aos.css";
 
 // Layouts
-import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
-import { DashboardSidebar } from './components/DashboardSidebar';
-import { ScrollToTop } from './components/ScrollToTop';
+import { Navbar } from "./components/Navbar";
+import { Footer } from "./components/Footer";
+import { DashboardSidebar } from "./components/DashboardSidebar";
+import { ScrollToTop } from "./components/ScrollToTop";
 
 // Public Pages
-import { LandingPage } from './pages/LandingPage';
-import { PricingPage } from './pages/PricingPage';
-import { DocsPage } from './pages/DocsPage';
-import { LoginPage } from './pages/LoginPage';
-import { SignupPage } from './pages/SignupPage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
-import { TermsOfServicePage } from './pages/TermsOfServicePage';
-import { CookiePolicyPage } from './pages/CookiePolicyPage';
-import { GDPRPage } from './pages/GDPRPage';
+import { LandingPage } from "./pages/LandingPage";
+import { PricingPage } from "./pages/PricingPage";
+import { DocsPage } from "./pages/DocsPage";
+import { LoginPage } from "./pages/LoginPage";
+import { SignupPage } from "./pages/SignupPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
+import { TermsOfServicePage } from "./pages/TermsOfServicePage";
+import { CookiePolicyPage } from "./pages/CookiePolicyPage";
+import { GDPRPage } from "./pages/GDPRPage";
 
 // User Dashboard Pages
-import { UserDashboard } from './pages/UserDashboard';
-import { VerifyEmailPage } from './pages/VerifyEmailPage';
-import { BulkUploadPage } from './pages/BulkUploadPage';
-import { BulkProcessPage } from './pages/BulkProcessPage';
-import { BulkResultsPage } from './pages/BulkResultsPage';
-import { HistoryPage } from './pages/HistoryPage';
-import { UserSettingsPage } from './pages/UserSettingsPage';
+import { UserDashboard } from "./pages/UserDashboard";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
+import { BulkUploadPage } from "./pages/BulkUploadPage";
+import { BulkProcessPage } from "./pages/BulkProcessPage";
+import { BulkResultsPage } from "./pages/BulkResultsPage";
+import { HistoryPage } from "./pages/HistoryPage";
+import { UserSettingsPage } from "./pages/UserSettingsPage";
 
 // Admin Pages
-import { AdminLoginPage } from './pages/AdminLoginPage';
-import { AdminDashboard } from './pages/AdminDashboard';
-import { AdminUsersPage } from './pages/AdminUsersPage';
-import { AdminLogsPage } from './pages/AdminLogsPage';
-import { AdminSettingsPage } from './pages/AdminSettingsPage';
-import { AdminFileManagerPage } from './pages/AdminFileManagerPage';
+import { AdminLoginPage } from "./pages/AdminLoginPage";
+import { AdminDashboard } from "./pages/AdminDashboard";
+import { AdminUsersPage } from "./pages/AdminUsersPage";
+import { AdminLogsPage } from "./pages/AdminLogsPage";
+import { AdminSettingsPage } from "./pages/AdminSettingsPage";
+import { AdminFileManagerPage } from "./pages/AdminFileManagerPage";
 
 // Loading component
 const LoadingScreen = () => (
@@ -58,15 +63,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (loading) {
     return <LoadingScreen />;
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
-  if (user?.role === 'admin') {
+
+  if (user?.role === "admin") {
     return <Navigate to="/admin" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -76,11 +81,11 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   if (loading) {
     return <LoadingScreen />;
   }
-  
-  if (!isAuthenticated || user?.role !== 'admin') {
+
+  if (!isAuthenticated || user?.role !== "admin") {
     return <Navigate to="/admin/login" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -102,16 +107,18 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
       {/* Sidebar - Desktop: fixed, Mobile: drawer */}
-      <div className={`
+      <div
+        className={`
         fixed inset-0 z-50 lg:relative lg:z-0
-        ${sidebarOpen ? 'block' : 'hidden lg:block'}
-      `}>
+        ${sidebarOpen ? "block" : "hidden lg:block"}
+      `}
+      >
         {/* Mobile Overlay */}
-        <div 
-          className="absolute inset-0 bg-black/50 lg:hidden" 
+        <div
+          className="absolute inset-0 bg-black/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
-        
+
         {/* Sidebar Content */}
         <div className="relative h-full transition-transform duration-300 transform">
           <DashboardSidebar onClose={() => setSidebarOpen(false)} />
@@ -121,7 +128,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Dashboard Top Header (Mobile only) */}
         <header className="lg:hidden bg-white border-b border-[#E5E7EB] h-16 flex items-center px-4 shrink-0 sticky top-0 z-40">
-          <button 
+          <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 -ml-2 text-gray-600"
           >
@@ -135,9 +142,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto">{children}</main>
       </div>
     </div>
   );
@@ -148,7 +153,7 @@ function AppContent() {
     AOS.init({
       duration: 1000,
       once: true,
-      easing: 'ease-out-cubic',
+      easing: "ease-out-cubic",
     });
   }, []);
 
@@ -157,16 +162,86 @@ function AppContent() {
       <ScrollToTop />
       <Routes>
         {/* Public Routes */}
-        <Route path="/" element={<PublicLayout><LandingPage /></PublicLayout>} />
-        <Route path="/pricing" element={<PublicLayout><PricingPage /></PublicLayout>} />
-        <Route path="/docs" element={<PublicLayout><DocsPage /></PublicLayout>} />
-        <Route path="/privacy" element={<PublicLayout><PrivacyPolicyPage /></PublicLayout>} />
-        <Route path="/terms" element={<PublicLayout><TermsOfServicePage /></PublicLayout>} />
-        <Route path="/cookies" element={<PublicLayout><CookiePolicyPage /></PublicLayout>} />
-        <Route path="/gdpr" element={<PublicLayout><GDPRPage /></PublicLayout>} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route
+          path="/"
+          element={
+            <PublicLayout>
+              <LandingPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/pricing"
+          element={
+            <PublicLayout>
+              <PricingPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/docs"
+          element={
+            <PublicLayout>
+              <DocsPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/privacy"
+          element={
+            <PublicLayout>
+              <PrivacyPolicyPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/terms"
+          element={
+            <PublicLayout>
+              <TermsOfServicePage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/cookies"
+          element={
+            <PublicLayout>
+              <CookiePolicyPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/gdpr"
+          element={
+            <PublicLayout>
+              <GDPRPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <PublicLayout>
+              <LoginPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <PublicLayout>
+              <SignupPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicLayout>
+              <ForgotPasswordPage />
+            </PublicLayout>
+          }
+        />
 
         {/* User Dashboard Routes */}
         <Route
@@ -241,7 +316,14 @@ function AppContent() {
         />
 
         {/* Admin Routes */}
-        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route
+          path="/admin/login"
+          element={
+            <PublicLayout>
+              <AdminLoginPage />
+            </PublicLayout>
+          }
+        />
         <Route
           path="/admin"
           element={

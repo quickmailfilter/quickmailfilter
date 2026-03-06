@@ -1,22 +1,41 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Checkbox } from '../components/ui/checkbox';
-import { ShieldCheck, Mail, Lock, User, CheckCircle2, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useApp } from "../context/AppContext";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  ShieldCheck,
+  Mail,
+  Lock,
+  User,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
+import { toast } from "sonner";
 
 export const SignupPage = () => {
   const navigate = useNavigate();
-  const { signup, signInWithGoogle } = useApp();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { signup, signInWithGoogle, user } = useApp();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Redirect if already logged in
+  React.useEffect(() => {
+    if (user) {
+      navigate(user.role === "admin" ? "/admin" : "/dashboard");
+    }
+  }, [user, navigate]);
 
   // Password strength calculation
   const getPasswordStrength = () => {
@@ -31,37 +50,40 @@ export const SignupPage = () => {
 
   const passwordStrength = getPasswordStrength();
   const getStrengthLabel = () => {
-    if (passwordStrength === 0) return '';
-    if (passwordStrength <= 25) return 'Weak';
-    if (passwordStrength <= 50) return 'Fair';
-    if (passwordStrength <= 75) return 'Good';
-    return 'Strong';
+    if (passwordStrength === 0) return "";
+    if (passwordStrength <= 25) return "Weak";
+    if (passwordStrength <= 50) return "Fair";
+    if (passwordStrength <= 75) return "Good";
+    return "Strong";
   };
 
   const getStrengthColor = () => {
-    if (passwordStrength <= 25) return 'bg-red-500';
-    if (passwordStrength <= 50) return 'bg-amber-500';
-    if (passwordStrength <= 75) return 'bg-blue-500';
-    return 'bg-green-500';
+    if (passwordStrength <= 25) return "bg-red-500";
+    if (passwordStrength <= 50) return "bg-amber-500";
+    if (passwordStrength <= 75) return "bg-blue-500";
+    return "bg-green-500";
   };
 
   const passwordRequirements = [
-    { label: 'At least 8 characters', met: password.length >= 8 },
-    { label: 'Contains lowercase letter', met: /[a-z]/.test(password) },
-    { label: 'Contains uppercase letter', met: /[A-Z]/.test(password) },
-    { label: 'Contains number or special character', met: /[0-9]/.test(password) || /[^a-zA-Z0-9]/.test(password) },
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "Contains lowercase letter", met: /[a-z]/.test(password) },
+    { label: "Contains uppercase letter", met: /[A-Z]/.test(password) },
+    {
+      label: "Contains number or special character",
+      met: /[0-9]/.test(password) || /[^a-zA-Z0-9]/.test(password),
+    },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!acceptTerms) {
-      toast.error('Please accept the terms and conditions');
+      toast.error("Please accept the terms and conditions");
       return;
     }
 
     if (passwordStrength < 50) {
-      toast.error('Please choose a stronger password');
+      toast.error("Please choose a stronger password");
       return;
     }
 
@@ -70,7 +92,7 @@ export const SignupPage = () => {
     try {
       const success = await signup(name, email, password);
       if (success) {
-        navigate('/dashboard');
+        navigate("/dashboard");
       }
     } catch (error: any) {
       // Error handled by context
@@ -83,7 +105,12 @@ export const SignupPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#F8FAFC] to-white flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md" data-aos="fade-up">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 justify-center mb-8" data-aos="zoom-in" data-aos-delay="200">
+        <Link
+          to="/"
+          className="flex items-center gap-2 justify-center mb-8"
+          data-aos="zoom-in"
+          data-aos-delay="200"
+        >
           <div className="w-12 h-12 bg-gradient-to-br from-[#2563EB] to-[#1E3A8A] rounded-xl flex items-center justify-center">
             <ShieldCheck className="w-7 h-7 text-white" />
           </div>
@@ -91,14 +118,26 @@ export const SignupPage = () => {
         </Link>
 
         <Card className="border-[#E5E7EB] shadow-xl overflow-hidden">
-          <CardHeader className="text-center pb-4" data-aos="fade-down" data-aos-delay="400">
-            <CardTitle className="text-2xl font-bold text-gray-900">Create Your Account</CardTitle>
-            <p className="text-gray-600 mt-2">Start verifying emails for free</p>
+          <CardHeader
+            className="text-center pb-4"
+            data-aos="fade-down"
+            data-aos-delay="400"
+          >
+            <CardTitle className="text-2xl font-bold text-gray-900">
+              Create Your Account
+            </CardTitle>
+            <p className="text-gray-600 mt-2">
+              Start verifying emails for free
+            </p>
           </CardHeader>
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Name */}
-              <div className="space-y-2" data-aos="fade-right" data-aos-delay="500">
+              <div
+                className="space-y-2"
+                data-aos="fade-right"
+                data-aos-delay="500"
+              >
                 <Label htmlFor="name">Full Name</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -115,7 +154,11 @@ export const SignupPage = () => {
               </div>
 
               {/* Email */}
-              <div className="space-y-2" data-aos="fade-right" data-aos-delay="600">
+              <div
+                className="space-y-2"
+                data-aos="fade-right"
+                data-aos-delay="600"
+              >
                 <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -132,7 +175,11 @@ export const SignupPage = () => {
               </div>
 
               {/* Password */}
-              <div className="space-y-2" data-aos="fade-right" data-aos-delay="700">
+              <div
+                className="space-y-2"
+                data-aos="fade-right"
+                data-aos-delay="700"
+              >
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -152,12 +199,17 @@ export const SignupPage = () => {
                   <div className="space-y-2" data-aos="fade-up">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Password strength:</span>
-                      <span className={`font-medium ${
-                        passwordStrength <= 25 ? 'text-red-600' :
-                        passwordStrength <= 50 ? 'text-amber-600' :
-                        passwordStrength <= 75 ? 'text-blue-600' :
-                        'text-green-600'
-                      }`}>
+                      <span
+                        className={`font-medium ${
+                          passwordStrength <= 25
+                            ? "text-red-600"
+                            : passwordStrength <= 50
+                              ? "text-amber-600"
+                              : passwordStrength <= 75
+                                ? "text-blue-600"
+                                : "text-green-600"
+                        }`}
+                      >
                         {getStrengthLabel()}
                       </span>
                     </div>
@@ -171,13 +223,20 @@ export const SignupPage = () => {
                     {/* Password Requirements */}
                     <div className="space-y-1 pt-2">
                       {passwordRequirements.map((req, index) => (
-                        <div key={index} className="flex items-center gap-2 text-xs">
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 text-xs"
+                        >
                           {req.met ? (
                             <CheckCircle2 className="w-4 h-4 text-green-600" />
                           ) : (
                             <XCircle className="w-4 h-4 text-gray-300" />
                           )}
-                          <span className={req.met ? 'text-green-600' : 'text-gray-500'}>
+                          <span
+                            className={
+                              req.met ? "text-green-600" : "text-gray-500"
+                            }
+                          >
                             {req.label}
                           </span>
                         </div>
@@ -188,19 +247,31 @@ export const SignupPage = () => {
               </div>
 
               {/* Terms & Conditions */}
-              <div className="flex items-start gap-2" data-aos="fade-up" data-aos-delay="800">
+              <div
+                className="flex items-start gap-2"
+                data-aos="fade-up"
+                data-aos-delay="800"
+              >
                 <Checkbox
                   id="terms"
                   checked={acceptTerms}
-                  onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
+                  onCheckedChange={(checked) =>
+                    setAcceptTerms(checked as boolean)
+                  }
                 />
-                <Label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer leading-relaxed">
-                  I agree to the{' '}
+                <Label
+                  htmlFor="terms"
+                  className="text-sm text-gray-600 cursor-pointer leading-relaxed"
+                >
+                  I agree to the{" "}
                   <Link to="/terms" className="text-[#2563EB] hover:underline">
                     Terms of Service
-                  </Link>{' '}
-                  and{' '}
-                  <Link to="/privacy" className="text-[#2563EB] hover:underline">
+                  </Link>{" "}
+                  and{" "}
+                  <Link
+                    to="/privacy"
+                    className="text-[#2563EB] hover:underline"
+                  >
                     Privacy Policy
                   </Link>
                 </Label>
@@ -215,16 +286,22 @@ export const SignupPage = () => {
                 data-aos="zoom-in"
                 data-aos-delay="900"
               >
-                {loading ? 'Creating account...' : 'Create Account'}
+                {loading ? "Creating account..." : "Create Account"}
               </Button>
 
               {/* OAuth Divider */}
-              <div className="relative" data-aos="fade-up" data-aos-delay="1000">
+              <div
+                className="relative"
+                data-aos="fade-up"
+                data-aos-delay="1000"
+              >
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-[#E5E7EB]"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                  <span className="px-2 bg-white text-gray-500">
+                    Or continue with
+                  </span>
                 </div>
               </div>
 
@@ -238,11 +315,11 @@ export const SignupPage = () => {
                   try {
                     const success = await signInWithGoogle();
                     if (success) {
-                      toast.success('Signed up with Google!');
-                      navigate('/dashboard');
+                      toast.success("Signed up with Google!");
+                      navigate("/dashboard");
                     }
                   } catch (error) {
-                    toast.error('Google sign-up failed');
+                    toast.error("Google sign-up failed");
                   }
                 }}
                 data-aos="fade-up"
@@ -271,9 +348,16 @@ export const SignupPage = () => {
             </form>
 
             {/* Sign In Link */}
-            <div className="mt-6 text-center text-sm text-gray-600" data-aos="fade-up" data-aos-delay="1200">
-              Already have an account?{' '}
-              <Link to="/login" className="text-[#2563EB] hover:underline font-medium">
+            <div
+              className="mt-6 text-center text-sm text-gray-600"
+              data-aos="fade-up"
+              data-aos-delay="1200"
+            >
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="text-[#2563EB] hover:underline font-medium"
+              >
                 Sign in
               </Link>
             </div>
@@ -281,7 +365,11 @@ export const SignupPage = () => {
         </Card>
 
         {/* Benefits */}
-        <Card className="mt-4 border-green-200 bg-green-50" data-aos="fade-up" data-aos-delay="1300">
+        <Card
+          className="mt-4 border-green-200 bg-green-50"
+          data-aos="fade-up"
+          data-aos-delay="1300"
+        >
           <CardContent className="p-4">
             <div className="space-y-2 text-sm text-green-800">
               <div className="flex items-center gap-2">

@@ -2,15 +2,17 @@ import { initializeApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
+import { getAnalytics } from "firebase/analytics";
 
-// Firebase configuration - Hardcoded for production
+// Firebase configuration for quick-mailfilter project
 const firebaseConfig = {
-  apiKey: "AIzaSyBri22mfqL3h5vDDpgvAIMQ7TAlZWt89ds",
-  authDomain: "ecommerce-college-project.firebaseapp.com",
-  projectId: "ecommerce-college-project",
-  storageBucket: "ecommerce-college-project.firebasestorage.app",
-  messagingSenderId: "702122011504",
-  appId: "1:702122011504:web:29400d1c6d409c44047db5",
+  apiKey: "AIzaSyAg1MrCaPlWWU7bHmmTFHk16RJN1u2JpT8",
+  authDomain: "quick-mailfilter.firebaseapp.com",
+  projectId: "quick-mailfilter",
+  storageBucket: "quick-mailfilter.firebasestorage.app",
+  messagingSenderId: "196296202203",
+  appId: "1:196296202203:web:248348cd18c85a7e1e79fe",
+  measurementId: "G-ZXXMN7K27W",
 };
 
 // Initialize Firebase
@@ -24,5 +26,10 @@ export const db: Firestore = getFirestore(app);
 
 // Initialize Firebase Storage
 export const storage: FirebaseStorage = getStorage(app);
+
+// Initialize Analytics (only in browser)
+if (typeof window !== "undefined") {
+  getAnalytics(app);
+}
 
 export default { auth, db, storage };

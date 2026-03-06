@@ -12,6 +12,10 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   GoogleAuthProvider,
+  updateProfile,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
 } from "firebase/auth";
 import {
   collection,
@@ -24,6 +28,11 @@ import {
   getDocs,
   addDoc,
   Timestamp,
+  orderBy,
+  onSnapshot,
+  deleteDoc,
+  serverTimestamp,
+  increment,
 } from "firebase/firestore";
 import { auth, db } from "../config/firebaseConfig";
 import axios from "axios";
@@ -33,15 +42,39 @@ export type UserRole = "user" | "admin";
 
 export type EmailStatus = "valid" | "invalid" | "risky" | "unknown";
 
+export interface PricingPlan {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  quota: number;
+  description: string;
+  features: string[];
+  popular: boolean;
+  active: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  plan: "free" | "business" | "enterprise";
+  plan: string;
   monthlyQuota: number;
   usedQuota: number;
   createdAt: Date;
+  disabled?: boolean;
+}
+
+export interface Payment {
+  id: string;
+  userId: string;
+  plan: string;
+  amount: number;
+  currency: string;
+  status: "pending" | "success" | "failed";
+  paymentDate: Date;
+  transactionId: string;
 }
 
 export interface EmailVerification {
@@ -103,6 +136,28 @@ interface AppContextType {
   ) => Promise<void>;
   allUsers: User[];
   allVerifications: EmailVerification[];
+  payments: Payment[];
+  pricingPlans: PricingPlan[];
+  addPricingPlan: (plan: Omit<PricingPlan, "id">) => Promise<boolean>;
+  updatePricingPlan: (
+    id: string,
+    updates: Partial<PricingPlan>,
+  ) => Promise<boolean>;
+  deletePricingPlan: (id: string) => Promise<boolean>;
+  updateUserProfile: (name: string, email: string) => Promise<boolean>;
+  updateUserPassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<boolean>;
+  upgradePlan: (
+    newPlan: "business" | "enterprise",
+    paymentData?: { amount: number; transactionId?: string },
+  ) => Promise<boolean>;
+  adminUpdateUser: (
+    userId: string,
+    updates: Partial<Pick<User, "plan" | "role" | "disabled">>,
+  ) => Promise<boolean>;
+  resetQuota: (userId: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -122,8 +177,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     EmailVerification[]
   >([]);
   const [bulkUploads, setBulkUploads] = useState<BulkUpload[]>([]);
-  const [allUsers] = useState<User[]>([]);
-  const [allVerifications] = useState<EmailVerification[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allVerifications, setAllVerifications] = useState<EmailVerification[]>(
+    [],
+  );
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+
+  // Listen to pricing plans globally
+  useEffect(() => {
+    const q = query(collection(db, "plans"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const plansArray: PricingPlan[] = [];
+      querySnapshot.forEach((doc) => {
+        plansArray.push({ id: doc.id, ...doc.data() } as PricingPlan);
+      });
+      console.log("Pricing plans updated:", plansArray);
+      setPricingPlans(plansArray);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Hardcoded API URL - use production on deployed VPS, localhost for dev
   const VALIDATOR_API_URL =
@@ -131,7 +204,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     window.location.hostname === "quickmailfilter.com"
       ? "https://quickmailfilter.com"
       : "http://localhost:3004";
-  const QUOTA_LIMITS = {
+  const QUOTA_LIMITS: Record<string, number> = {
     free: 1000,
     business: 50000,
     enterprise: 1000000,
@@ -158,13 +231,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               monthlyQuota: userData.monthlyQuota || QUOTA_LIMITS.free,
               usedQuota: userData.usedQuota || 0,
               createdAt: userData.createdAt?.toDate() || new Date(),
+              disabled: userData.disabled || false,
             };
             setUser(appUser);
 
-            // Load verification history
-            await loadVerificationHistory(firebaseUser.uid);
-            // Load bulk uploads
-            await loadBulkUploads(firebaseUser.uid);
+            if (appUser.role === "admin") {
+              // Admin: load all users, all verifications
+              await loadAllUsers();
+              await loadAllVerifications();
+            } else {
+              // Regular user: load personal data
+              await loadVerificationHistory(firebaseUser.uid);
+              await loadBulkUploads(firebaseUser.uid);
+              await loadPayments(firebaseUser.uid);
+            }
           }
         } catch (error) {
           console.error("Error loading user data:", error);
@@ -174,6 +254,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setVerificationHistory([]);
         setBulkUploads([]);
+        setAllUsers([]);
+        setAllVerifications([]);
+        setPayments([]);
       }
       setLoading(false);
     });
@@ -181,20 +264,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  // Load verification history from Firestore
+  // Load verification history from Firestore (per user)
   const loadVerificationHistory = async (userId: string) => {
     try {
       const q = query(
         collection(db, "verifications"),
         where("userId", "==", userId),
+        orderBy("timestamp", "desc"),
       );
       const querySnapshot = await getDocs(q);
       const verifications: EmailVerification[] = [];
 
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         verifications.push({
-          id: doc.id,
+          id: docSnap.id,
           email: data.email,
           status: data.status,
           formatValid: data.formatValid,
@@ -210,10 +294,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         });
       });
 
-      // Sort by timestamp, newest first
-      verifications.sort(
-        (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
-      );
       setVerificationHistory(verifications);
     } catch (error) {
       console.error("Error loading verification history:", error);
@@ -226,14 +306,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const q = query(
         collection(db, "bulkUploads"),
         where("userId", "==", userId),
+        orderBy("uploadedAt", "desc"),
       );
       const querySnapshot = await getDocs(q);
       const uploads: BulkUpload[] = [];
 
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         uploads.push({
-          id: doc.id,
+          id: docSnap.id,
           filename: data.filename,
           totalEmails: data.totalEmails,
           processed: data.processed,
@@ -249,11 +330,102 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         });
       });
 
-      // Sort by upload date, newest first
-      uploads.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
       setBulkUploads(uploads);
     } catch (error) {
       console.error("Error loading bulk uploads:", error);
+    }
+  };
+
+  // Load user's payment history from Firestore
+  const loadPayments = async (userId: string) => {
+    try {
+      const q = query(
+        collection(db, "payments"),
+        where("userId", "==", userId),
+        orderBy("paymentDate", "desc"),
+      );
+      const querySnapshot = await getDocs(q);
+      const paymentList: Payment[] = [];
+
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        paymentList.push({
+          id: docSnap.id,
+          userId: data.userId,
+          plan: data.plan,
+          amount: data.amount,
+          currency: data.currency,
+          status: data.status,
+          paymentDate: data.paymentDate?.toDate() || new Date(),
+          transactionId: data.transactionId,
+        });
+      });
+
+      setPayments(paymentList);
+    } catch (error) {
+      console.error("Error loading payments:", error);
+    }
+  };
+
+  // Admin: Load all users from Firestore
+  const loadAllUsers = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "users"));
+      const users: User[] = [];
+
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        users.push({
+          id: docSnap.id,
+          name: data.name,
+          email: data.email,
+          role: data.role || "user",
+          plan: data.plan || "free",
+          monthlyQuota: data.monthlyQuota || QUOTA_LIMITS.free,
+          usedQuota: data.usedQuota || 0,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          disabled: data.disabled || false,
+        });
+      });
+
+      setAllUsers(users);
+    } catch (error) {
+      console.error("Error loading all users:", error);
+    }
+  };
+
+  // Admin: Load all verifications from Firestore
+  const loadAllVerifications = async () => {
+    try {
+      const q = query(
+        collection(db, "verifications"),
+        orderBy("timestamp", "desc"),
+      );
+      const querySnapshot = await getDocs(q);
+      const verifications: EmailVerification[] = [];
+
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        verifications.push({
+          id: docSnap.id,
+          email: data.email,
+          status: data.status,
+          formatValid: data.formatValid,
+          domainExists: data.domainExists,
+          mxRecordFound: data.mxRecordFound,
+          disposable: data.disposable,
+          roleBased: data.roleBased,
+          catchAll: data.catchAll,
+          reason: data.reason,
+          confidence: data.confidence,
+          timestamp: data.timestamp?.toDate() || new Date(),
+          userId: data.userId,
+        });
+      });
+
+      setAllVerifications(verifications);
+    } catch (error) {
+      console.error("Error loading all verifications:", error);
     }
   };
 
@@ -379,6 +551,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setVerificationHistory([]);
       setBulkUploads([]);
+      setAllUsers([]);
+      setAllVerifications([]);
+      setPayments([]);
       toast.success("Logged out successfully!");
     } catch (error: any) {
       toast.error(error.message || "Failed to logout");
@@ -423,9 +598,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         userId: user?.id || "guest",
       };
 
-      // Update local state if user is logged in
+      // Save to Firestore and update quota if user is logged in
       if (user) {
-        setVerificationHistory([verification, ...verificationHistory]);
+        try {
+          const verificationRef = doc(collection(db, "verifications"));
+          verification.id = verificationRef.id;
+          await setDoc(verificationRef, {
+            email: verification.email,
+            status: verification.status,
+            formatValid: verification.formatValid,
+            domainExists: verification.domainExists,
+            mxRecordFound: verification.mxRecordFound,
+            disposable: verification.disposable,
+            roleBased: verification.roleBased,
+            catchAll: verification.catchAll,
+            reason: verification.reason,
+            confidence: verification.confidence,
+            timestamp: Timestamp.fromDate(verification.timestamp),
+            userId: verification.userId,
+          });
+
+          // Increment usedQuota in Firestore atomically
+          const userRef = doc(db, "users", user.id);
+          await updateDoc(userRef, { usedQuota: increment(1) });
+
+          // Update local user state
+          setUser((prev) =>
+            prev ? { ...prev, usedQuota: prev.usedQuota + 1 } : prev,
+          );
+        } catch (saveError) {
+          console.error("Error saving verification to Firestore:", saveError);
+        }
+
+        setVerificationHistory((prev) => [verification, ...prev]);
       }
 
       return verification;
@@ -449,7 +654,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     // Firebase Storage is temporarily disabled due to CORS restrictions
     // File will be processed from memory instead
-    const fileUrl = ""; // No file URL since we're skipping Firebase Storage
 
     toast.success("Firebase Storage skipped. Processing emails from memory...");
 
@@ -611,6 +815,189 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Update user's display name (and optionally email) in Auth + Firestore
+  const updateUserProfile = async (
+    name: string,
+    email: string,
+  ): Promise<boolean> => {
+    if (!user || !auth.currentUser) return false;
+    try {
+      // Update Firebase Auth display name
+      await updateProfile(auth.currentUser, { displayName: name });
+
+      // Update Firestore user document
+      const userRef = doc(db, "users", user.id);
+      await updateDoc(userRef, { name, email });
+
+      setUser((prev) => (prev ? { ...prev, name, email } : prev));
+      toast.success("Profile updated successfully!");
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update profile");
+      console.error("Update profile error:", error);
+      return false;
+    }
+  };
+
+  // Re-authenticate then change password
+  const updateUserPassword = async (
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<boolean> => {
+    if (!user || !auth.currentUser) return false;
+    try {
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        currentPassword,
+      );
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, newPassword);
+      toast.success("Password updated successfully!");
+      return true;
+    } catch (error: any) {
+      const msg =
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/invalid-credential"
+          ? "Current password is incorrect"
+          : error.message || "Failed to update password";
+      toast.error(msg);
+      console.error("Update password error:", error);
+      return false;
+    }
+  };
+
+  // Upgrade current user's plan and record payment in Firestore
+  const upgradePlan = async (
+    newPlan: "business" | "enterprise",
+    paymentData?: { amount: number; transactionId?: string },
+  ): Promise<boolean> => {
+    if (!user) return false;
+    const newQuota = QUOTA_LIMITS[newPlan];
+    try {
+      const userRef = doc(db, "users", user.id);
+      await updateDoc(userRef, { plan: newPlan, monthlyQuota: newQuota });
+
+      // Record payment document
+      if (paymentData) {
+        await addDoc(collection(db, "payments"), {
+          userId: user.id,
+          plan: newPlan,
+          amount: paymentData.amount,
+          currency: "INR",
+          status: "success",
+          paymentDate: Timestamp.now(),
+          transactionId: paymentData.transactionId || `txn-${Date.now()}`,
+        });
+      }
+
+      setUser((prev) =>
+        prev ? { ...prev, plan: newPlan, monthlyQuota: newQuota } : prev,
+      );
+      toast.success(`Plan upgraded to ${newPlan}!`);
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to upgrade plan");
+      console.error("Upgrade plan error:", error);
+      return false;
+    }
+  };
+
+  // Admin: update any user's plan, role, or disabled status in Firestore
+  const adminUpdateUser = async (
+    userId: string,
+    updates: Partial<Pick<User, "plan" | "role" | "disabled">>,
+  ): Promise<boolean> => {
+    try {
+      const firestoreUpdates: Record<string, unknown> = { ...updates };
+      if (updates.plan) {
+        firestoreUpdates.monthlyQuota = QUOTA_LIMITS[updates.plan];
+      }
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, firestoreUpdates);
+
+      setAllUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                ...updates,
+                monthlyQuota: updates.plan
+                  ? QUOTA_LIMITS[updates.plan]
+                  : u.monthlyQuota,
+              }
+            : u,
+        ),
+      );
+      toast.success("User updated successfully!");
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update user");
+      console.error("Admin update user error:", error);
+      return false;
+    }
+  };
+
+  // Admin: reset a user's monthly usedQuota to 0
+  const resetQuota = async (userId: string): Promise<boolean> => {
+    try {
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, { usedQuota: 0 });
+      setAllUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, usedQuota: 0 } : u)),
+      );
+      toast.success("User quota reset successfully!");
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reset quota");
+      return false;
+    }
+  };
+
+  const addPricingPlan = async (
+    plan: Omit<PricingPlan, "id">,
+  ): Promise<boolean> => {
+    try {
+      await addDoc(collection(db, "plans"), {
+        ...plan,
+        createdAt: serverTimestamp(),
+      });
+      toast.success("Pricing plan added successfully!");
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add plan");
+      return false;
+    }
+  };
+
+  const updatePricingPlan = async (
+    id: string,
+    updates: Partial<PricingPlan>,
+  ): Promise<boolean> => {
+    try {
+      const planRef = doc(db, "plans", id);
+      const firestoreUpdates = { ...updates };
+      delete (firestoreUpdates as any).id;
+      await updateDoc(planRef, firestoreUpdates as any);
+      toast.success("Pricing plan updated!");
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update plan");
+      return false;
+    }
+  };
+
+  const deletePricingPlan = async (id: string): Promise<boolean> => {
+    try {
+      const planRef = doc(db, "plans", id);
+      await deleteDoc(planRef);
+      toast.success("Pricing plan deleted!");
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete plan");
+      return false;
+    }
+  };
+
   const value: AppContextType = {
     user,
     isAuthenticated: !!user,
@@ -627,6 +1014,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     updateBulkStatus,
     allUsers,
     allVerifications,
+    payments,
+    pricingPlans,
+    addPricingPlan,
+    updatePricingPlan,
+    deletePricingPlan,
+    updateUserProfile,
+    updateUserPassword,
+    upgradePlan,
+    adminUpdateUser,
+    resetQuota,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
