@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -20,16 +20,16 @@ import {
   Trash2,
   Edit2,
   Check,
-  X,
   Star,
 } from "lucide-react";
 import { useApp, PricingPlan } from "../context/AppContext";
 
 export const AdminSettingsPage = () => {
-  const { pricingPlans, addPricingPlan, updatePricingPlan, deletePricingPlan } =
-    useApp();
+  const { pricingPlans, addPricingPlan, deletePricingPlan } = useApp();
   const [activeTab, setActiveTab] = useState<"general" | "pricing">("general");
-  const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [planType, setPlanType] = useState<"subscription" | "onetime">(
+    "subscription",
+  );
   const [newPlan, setNewPlan] = useState<Omit<PricingPlan, "id">>({
     name: "",
     price: 0,
@@ -39,9 +39,25 @@ export const AdminSettingsPage = () => {
     features: [],
     popular: false,
     active: true,
+    planType: "subscription",
+    dailyCredits: 500,
+    creditAmount: 500,
+    billingPeriod: "monthly",
   });
 
   const [isSaving, setIsSaving] = useState(false);
+
+  const [settings, setSettings] = useState({
+    siteName: "Email Validator",
+    siteEmail: "support@emailvalidator.com",
+    apiRateLimit: 1000,
+    dataRetentionDays: 90,
+    maxFileSize: 10,
+    maintenanceMode: false,
+    emailVerificationRequired: true,
+    twoFactorEnabled: false,
+    allowBulkUpload: true,
+  });
 
   const handleChange = (field: string, value: any) => {
     setSettings((prev) => ({
@@ -314,6 +330,18 @@ export const AdminSettingsPage = () => {
                           <div className="mt-4 flex gap-6">
                             <div>
                               <p className="text-xs text-gray-400 uppercase font-bold">
+                                {plan.planType === "subscription"
+                                  ? "Daily Credits"
+                                  : "Credit Amount"}
+                              </p>
+                              <p className="font-mono">
+                                {plan.dailyCredits ||
+                                  plan.creditAmount ||
+                                  "N/A"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400 uppercase font-bold">
                                 Price
                               </p>
                               <p className="font-mono">
@@ -322,12 +350,26 @@ export const AdminSettingsPage = () => {
                             </div>
                             <div>
                               <p className="text-xs text-gray-400 uppercase font-bold">
-                                Quota
+                                {plan.planType === "subscription"
+                                  ? "Monthly Quota"
+                                  : "Total Credits"}
                               </p>
                               <p className="font-mono">
-                                {plan.quota.toLocaleString()} Emails
+                                {plan.quota.toLocaleString()}
                               </p>
                             </div>
+                            {plan.planType && (
+                              <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold">
+                                  Type
+                                </p>
+                                <p className="font-mono capitalize">
+                                  {plan.planType === "subscription"
+                                    ? "Monthly"
+                                    : "One-Time"}
+                                </p>
+                              </div>
+                            )}
                           </div>
                           <div className="mt-4 flex flex-wrap gap-2">
                             {plan.features.map((f, i) => (
@@ -396,6 +438,33 @@ export const AdminSettingsPage = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <Label className="text-xs uppercase font-bold text-gray-400">
+                      Plan Type
+                    </Label>
+                    <select
+                      value={planType}
+                      onChange={(e) => {
+                        const type = e.target.value as
+                          | "subscription"
+                          | "onetime";
+                        setPlanType(type);
+                        setNewPlan({
+                          ...newPlan,
+                          planType: type,
+                          billingPeriod:
+                            type === "subscription" ? "monthly" : "one-time",
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-sm"
+                    >
+                      <option value="subscription">
+                        Subscription (Daily Credits)
+                      </option>
+                      <option value="onetime">One-Time (Pay as you go)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs uppercase font-bold text-gray-400">
                       Plan Name
                     </Label>
                     <Input
@@ -403,9 +472,58 @@ export const AdminSettingsPage = () => {
                       onChange={(e) =>
                         setNewPlan({ ...newPlan, name: e.target.value })
                       }
-                      placeholder="e.g. Pro Plan"
+                      placeholder={
+                        planType === "subscription"
+                          ? "e.g. 500 credits/day"
+                          : "e.g. 1k Credits"
+                      }
                     />
                   </div>
+
+                  {planType === "subscription" && (
+                    <div>
+                      <Label className="text-xs uppercase font-bold text-gray-400">
+                        Daily Credits
+                      </Label>
+                      <Input
+                        type="number"
+                        value={newPlan.dailyCredits || 500}
+                        onChange={(e) =>
+                          setNewPlan({
+                            ...newPlan,
+                            dailyCredits: parseInt(e.target.value),
+                            quota: parseInt(e.target.value) * 30, // Calculate monthly quota
+                          })
+                        }
+                        placeholder="500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Monthly quota will be calculated automatically (daily ×
+                        30)
+                      </p>
+                    </div>
+                  )}
+
+                  {planType === "onetime" && (
+                    <div>
+                      <Label className="text-xs uppercase font-bold text-gray-400">
+                        Credit Amount
+                      </Label>
+                      <Input
+                        type="number"
+                        value={newPlan.creditAmount || 500}
+                        onChange={(e) =>
+                          setNewPlan({
+                            ...newPlan,
+                            creditAmount: parseInt(e.target.value),
+                            quota: parseInt(e.target.value),
+                          })
+                        }
+                        placeholder="1000"
+                      />
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-xs uppercase font-bold text-gray-400">
@@ -420,6 +538,7 @@ export const AdminSettingsPage = () => {
                             price: parseInt(e.target.value),
                           })
                         }
+                        placeholder="2000"
                       />
                     </div>
                     <div>
@@ -435,7 +554,11 @@ export const AdminSettingsPage = () => {
                             quota: parseInt(e.target.value),
                           })
                         }
+                        disabled
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Auto-calculated
+                      </p>
                     </div>
                   </div>
                   <div>
@@ -447,7 +570,11 @@ export const AdminSettingsPage = () => {
                       onChange={(e) =>
                         setNewPlan({ ...newPlan, description: e.target.value })
                       }
-                      placeholder="Short summary of the plan"
+                      placeholder={
+                        planType === "subscription"
+                          ? "e.g. 500 credits per day / 15,000 per month"
+                          : "e.g. 1,000 email verifications"
+                      }
                       className="resize-none"
                     />
                   </div>
@@ -465,8 +592,10 @@ export const AdminSettingsPage = () => {
                   <div className="pt-4">
                     <Button
                       onClick={async () => {
-                        if (!newPlan.name || !newPlan.quota)
-                          return toast.error("Name and Quota are required");
+                        if (!newPlan.name || !newPlan.price || !newPlan.quota)
+                          return toast.error(
+                            "Name, Price, and Quota are required",
+                          );
                         // Add some default features if empty
                         const planToSave = {
                           ...newPlan,
@@ -489,6 +618,13 @@ export const AdminSettingsPage = () => {
                             features: [],
                             popular: false,
                             active: true,
+                            planType: planType,
+                            dailyCredits: 500,
+                            creditAmount: 500,
+                            billingPeriod:
+                              planType === "subscription"
+                                ? "monthly"
+                                : "one-time",
                           });
                         }
                       }}

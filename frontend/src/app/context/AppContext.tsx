@@ -52,6 +52,10 @@ export interface PricingPlan {
   features: string[];
   popular: boolean;
   active: boolean;
+  planType?: "subscription" | "onetime"; // new field
+  dailyCredits?: number; // for subscription plans
+  creditAmount?: number; // for one-time plans
+  billingPeriod?: "monthly" | "daily" | "one-time"; // billing frequency
 }
 
 export interface User {
@@ -115,6 +119,12 @@ interface AppContextType {
   isAuthenticated: boolean;
   loading: boolean;
   signup: (name: string, email: string, password: string) => Promise<boolean>;
+  signupAdmin: (
+    name: string,
+    email: string,
+    password: string,
+    adminCode: string,
+  ) => Promise<boolean>;
   login: (
     email: string,
     password: string,
@@ -216,30 +226,49 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       if (firebaseUser) {
         try {
-          // Get user document from Firestore
-          const userRef = doc(db, "users", firebaseUser.uid);
-          const userSnap = await getDoc(userRef);
+          // First, try to get admin document from 'admin' collection
+          const adminRef = doc(db, "admin", firebaseUser.uid);
+          const adminSnap = await getDoc(adminRef);
 
-          if (userSnap.exists()) {
-            const userData = userSnap.data();
+          if (adminSnap.exists()) {
+            // User is an admin - load from admin collection
+            const adminData = adminSnap.data();
             const appUser: User = {
               id: firebaseUser.uid,
-              name: userData.name,
+              name: adminData.name,
               email: firebaseUser.email || "",
-              role: userData.role || "user",
-              plan: userData.plan || "free",
-              monthlyQuota: userData.monthlyQuota || QUOTA_LIMITS.free,
-              usedQuota: userData.usedQuota || 0,
-              createdAt: userData.createdAt?.toDate() || new Date(),
-              disabled: userData.disabled || false,
+              role: "admin",
+              plan: adminData.plan || "enterprise",
+              monthlyQuota: adminData.monthlyQuota || QUOTA_LIMITS.enterprise,
+              usedQuota: adminData.usedQuota || 0,
+              createdAt: adminData.createdAt?.toDate() || new Date(),
+              disabled: adminData.disabled || false,
             };
             setUser(appUser);
 
-            if (appUser.role === "admin") {
-              // Admin: load all users, all verifications
-              await loadAllUsers();
-              await loadAllVerifications();
-            } else {
+            // Admin: load all users, all verifications
+            await loadAllUsers();
+            await loadAllVerifications();
+          } else {
+            // User is not an admin - try to get from 'users' collection
+            const userRef = doc(db, "users", firebaseUser.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+              const userData = userSnap.data();
+              const appUser: User = {
+                id: firebaseUser.uid,
+                name: userData.name,
+                email: firebaseUser.email || "",
+                role: userData.role || "user",
+                plan: userData.plan || "free",
+                monthlyQuota: userData.monthlyQuota || QUOTA_LIMITS.free,
+                usedQuota: userData.usedQuota || 0,
+                createdAt: userData.createdAt?.toDate() || new Date(),
+                disabled: userData.disabled || false,
+              };
+              setUser(appUser);
+
               // Regular user: load personal data
               await loadVerificationHistory(firebaseUser.uid);
               await loadBulkUploads(firebaseUser.uid);
@@ -468,6 +497,58 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Admin Signup with Firebase Auth - creates document in 'admin' collection
+  const signupAdmin = async (
+    name: string,
+    email: string,
+    password: string,
+    adminCode: string,
+  ): Promise<boolean> => {
+    try {
+      // Verify admin code (server-side validation recommended in production)
+      const ADMIN_REGISTRATION_CODE = "ADMIN_SECRET_2026"; // Change this to your secret code
+
+      if (adminCode.trim() !== ADMIN_REGISTRATION_CODE) {
+        toast.error("Invalid admin registration code");
+        console.error("Invalid admin code attempt");
+        return false;
+      }
+
+      // Create Firebase Auth account
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const firebaseUser = userCredential.user;
+
+      // Create admin document in 'admin' collection (NOT in 'users' collection)
+      const adminRef = doc(db, "admin", firebaseUser.uid);
+      await setDoc(adminRef, {
+        name,
+        email,
+        plan: "enterprise",
+        monthlyQuota: QUOTA_LIMITS.enterprise,
+        usedQuota: 0,
+        createdAt: Timestamp.now(),
+        disabled: false,
+        role: "admin",
+      });
+
+      toast.success("Admin account created successfully!");
+      console.log("New admin created:", firebaseUser.uid);
+      return true;
+    } catch (error: any) {
+      const errorMessage =
+        error.code === "auth/email-already-in-use"
+          ? "Email already in use"
+          : error.message || "Failed to create admin account";
+      toast.error(errorMessage);
+      console.error("Admin signup error:", error);
+      return false;
+    }
+  };
+
   // Login with Firebase Auth
   const login = async (
     email: string,
@@ -482,21 +563,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       );
 
       if (isAdmin) {
-        const userRef = doc(db, "users", userCredential.user.uid);
-        const userSnap = await getDoc(userRef);
+        // Check admin collection for admin account
+        const adminRef = doc(db, "admin", userCredential.user.uid);
+        const adminSnap = await getDoc(adminRef);
 
-        if (userSnap.exists()) {
-          const userData = userSnap.data();
-          if (userData.role !== "admin") {
-            await signOut(auth);
-            toast.error("Access denied. Admin role required.");
-            return false;
-          }
-        } else {
+        if (!adminSnap.exists()) {
           await signOut(auth);
-          toast.error("User record not found.");
+          toast.error("Access denied. Admin account not found.");
           return false;
         }
+
+        // Admin account exists and is valid
+        console.log("Admin login successful for:", userCredential.user.uid);
       }
 
       toast.success("Logged in successfully!");
@@ -1003,6 +1081,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     isAuthenticated: !!user,
     loading,
     signup,
+    signupAdmin,
     login,
     signInWithGoogle,
     logout,

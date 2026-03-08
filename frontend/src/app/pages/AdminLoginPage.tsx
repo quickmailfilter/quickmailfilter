@@ -1,19 +1,25 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { ShieldCheck, Lock, Mail } from 'lucide-react';
-import { toast } from 'sonner';
-import { Alert, AlertDescription } from '../components/ui/alert';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useApp } from "../context/AppContext";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { ShieldCheck, Lock, Mail } from "lucide-react";
+import { toast } from "sonner";
+import { Alert, AlertDescription } from "../components/ui/alert";
 
 export const AdminLoginPage = () => {
   const navigate = useNavigate();
   const { login } = useApp();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,7 +29,7 @@ export const AdminLoginPage = () => {
     try {
       const success = await login(email, password, true); // isAdmin = true
       if (success) {
-        navigate('/admin');
+        navigate("/admin");
       }
     } catch (error) {
       // Error handled by context
@@ -48,7 +54,8 @@ export const AdminLoginPage = () => {
           <Alert className="mb-6 bg-blue-50 border-blue-200">
             <Lock className="h-4 w-4 text-[#2563EB]" />
             <AlertDescription className="text-sm text-[#1E3A8A]">
-              Demo credentials: <strong>admin@verifymail.com</strong> / <strong>admin123</strong>
+              Demo credentials: <strong>admin@verifymail.com</strong> /{" "}
+              <strong>admin123</strong>
             </AlertDescription>
           </Alert>
 
@@ -85,16 +92,27 @@ export const AdminLoginPage = () => {
               </div>
             </div>
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full bg-[#2563EB] hover:bg-[#1E3A8A]"
               disabled={loading}
             >
-              {loading ? 'Authenticating...' : 'Access Admin Panel'}
+              {loading ? "Authenticating..." : "Access Admin Panel"}
             </Button>
           </form>
         </CardContent>
       </Card>
+
+      {/* Signup Link */}
+      <div className="mt-6 text-center">
+        <p className="text-white/80 mb-3">Don't have an admin account?</p>
+        <Link
+          to="/admin/signup"
+          className="inline-block px-6 py-2 border-2 border-white text-white rounded-lg hover:bg-white/10 transition-colors font-medium"
+        >
+          Create Admin Account
+        </Link>
+      </div>
     </div>
   );
 };

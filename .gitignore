@@ -53,7 +53,7 @@ temp/
 .project
 .settings/
 
-# OS
+# OSsudo certbot certonly --standalone -d quickmailfilter.com -d www.quickmailfilter.com
 Thumbs.db
 .DS_Store
 ehthumbs.db

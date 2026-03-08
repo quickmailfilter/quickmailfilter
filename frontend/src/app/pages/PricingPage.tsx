@@ -16,12 +16,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../components/ui/dialog";
+import { PaymentCheckout } from "../components/PaymentCheckout";
 
 export const PricingPage = () => {
   const { user, isAuthenticated, upgradePlan, pricingPlans } = useApp();
   const navigate = useNavigate();
   const [upgradeTarget, setUpgradeTarget] = useState<PricingPlan | null>(null);
-  const [upgrading, setUpgrading] = useState(false);
+  const [showPaymentCheckout, setShowPaymentCheckout] = useState(false);
 
   const handlePlanCTA = (plan: PricingPlan) => {
     if (plan.price === 0) {
@@ -39,18 +40,22 @@ export const PricingPage = () => {
     const currentPlanName = user?.plan || "free";
     if (currentPlanName.toLowerCase() === plan.name.toLowerCase()) return;
     setUpgradeTarget(plan);
+    setShowPaymentCheckout(true);
   };
 
-  const confirmUpgrade = async () => {
+  const handlePaymentSuccess = async (paymentData: any) => {
     if (!upgradeTarget) return;
-    setUpgrading(true);
+
+    // Update user plan in context
     await upgradePlan(upgradeTarget.name as any, {
       amount: upgradeTarget.price,
-      transactionId: `txn-${Date.now()}`,
+      transactionId: paymentData.paymentId,
+      orderId: paymentData.orderId,
     });
-    setUpgrading(false);
+
+    setShowPaymentCheckout(false);
     setUpgradeTarget(null);
-    navigate("/dashboard/settings");
+    navigate("/dashboard");
   };
 
   const displayPlans =
@@ -61,7 +66,7 @@ export const PricingPage = () => {
             id: "static-free",
             name: "Free Trial",
             price: 0,
-            currency: "?",
+            currency: "₹",
             description: "Perfect for testing our service",
             quota: 1000,
             features: [
@@ -77,7 +82,7 @@ export const PricingPage = () => {
             id: "static-biz",
             name: "Business",
             price: 4099,
-            currency: "?",
+            currency: "₹",
             description: "For growing businesses",
             quota: 50000,
             features: [
@@ -85,6 +90,8 @@ export const PricingPage = () => {
               "Bulk list cleaning",
               "Advanced filtering",
               "Priority support",
+              "API access",
+              "Custom integrations",
             ],
             popular: true,
             active: true,
@@ -93,7 +100,7 @@ export const PricingPage = () => {
             id: "static-ent",
             name: "Enterprise",
             price: 16599,
-            currency: "?",
+            currency: "₹",
             description: "For large organizations",
             quota: 150000,
             features: [
@@ -101,6 +108,8 @@ export const PricingPage = () => {
               "24/7 premium support",
               "Custom integrations",
               "SLA guarantee",
+              "Dedicated account manager",
+              "Advanced reporting",
             ],
             popular: false,
             active: true,
@@ -258,15 +267,15 @@ export const PricingPage = () => {
       </div>
 
       <Dialog
-        open={!!upgradeTarget}
-        onOpenChange={() => !upgrading && setUpgradeTarget(null)}
+        open={!!upgradeTarget && !showPaymentCheckout}
+        onOpenChange={() => setUpgradeTarget(null)}
       >
         <DialogContent className="bg-white">
           <DialogHeader>
-            <DialogTitle>Confirm Plan Upgrade</DialogTitle>
+            <DialogTitle>Ready to Upgrade?</DialogTitle>
             <DialogDescription>
-              Are you sure you want to upgrade to the{" "}
-              <strong>{upgradeTarget?.name}</strong>?
+              Proceed to secure payment with Razorpay to activate your{" "}
+              <strong>{upgradeTarget?.name}</strong> plan.
             </DialogDescription>
           </DialogHeader>
 
@@ -276,35 +285,44 @@ export const PricingPage = () => {
               <span className="font-bold">{upgradeTarget?.name}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <span className="text-gray-600">Total Due Today:</span>
+              <span className="text-gray-600">Monthly Cost:</span>
               <span className="font-bold text-xl text-blue-600">
-                {upgradeTarget?.currency}
-                {upgradeTarget?.price.toLocaleString()}
+                ₹{upgradeTarget?.price.toLocaleString()}
               </span>
             </div>
-            <p className="text-xs text-gray-400 text-center italic">
-              By confirming, your account quota will be updated immediately.
+            <p className="text-xs text-gray-500 text-center">
+              You will be redirected to secure payment gateway powered by
+              Razorpay.
             </p>
           </div>
 
           <div className="flex gap-3 justify-end mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setUpgradeTarget(null)}
-              disabled={upgrading}
-            >
+            <Button variant="outline" onClick={() => setUpgradeTarget(null)}>
               Cancel
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={confirmUpgrade}
-              disabled={upgrading}
+              onClick={() => setShowPaymentCheckout(true)}
             >
-              {upgrading ? "Processing..." : "Confirm & Pay"}
+              Continue to Payment
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {upgradeTarget && (
+        <PaymentCheckout
+          isOpen={showPaymentCheckout}
+          planName={upgradeTarget.name}
+          amount={upgradeTarget.price}
+          userEmail={user?.email || ""}
+          onSuccess={handlePaymentSuccess}
+          onClose={() => {
+            setShowPaymentCheckout(false);
+            setUpgradeTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 };
