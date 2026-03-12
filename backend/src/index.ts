@@ -17,7 +17,7 @@ import './types'
 /**
  * Calculate deliverability score based on all factors
  * Score: 0-100 (higher = more likely deliverable)
- * Professional-grade scoring for non-SMTP validation
+ * Professional-grade scoring - works with or without SMTP
  */
 function calculateDeliverabilityScore(data: any): number {
   let score = 0
@@ -27,44 +27,66 @@ function calculateDeliverabilityScore(data: any): number {
   if (data.typo) return 5 // Detected typo = very risky
   if (data.breached && data.breachCount > 5) return 10 // Multiple breaches = risky
   
-  // Base score for having valid MX records (50 points)
+  // Base score for having valid MX records (40 points)
   // This is the most important factor without SMTP
   if (data.mx_record && data.mx_domain) {
-    score += 50
+    score += 40
   } else {
     return 0 // No MX record = invalid
   }
   
-  // DNS Security (25 points total) - Critical for no-SMTP validation
-  if (data.spf) score += 8
-  if (data.dkim) score += 9
-  if (data.dmarc) score += 8
+  // Pattern quality scoring (15 points max) - Enhanced for SMTP-unavailable scenarios
+  // High pattern score = legitimate looking email
+  if (data.pattern_score) {
+    const patternBonus = Math.floor((data.pattern_score / 100) * 15)
+    score += patternBonus
+  }
   
-  // Domain Type Scoring (15 points)
-  if (!data.free && !data.disposable) {
-    // Corporate/Business domain = more trustworthy
+  // DNS Security (35 points total) - CRITICAL for no-SMTP validation
+  // Boosted from 25 to 35 when SMTP is not available
+  const dnsCount = (data.spf ? 1 : 0) + (data.dkim ? 1 : 0) + (data.dmarc ? 1 : 0)
+  if (dnsCount === 3) {
+    // Perfect DNS security score = +15 (all three records valid)
+    score += 15
+  } else if (dnsCount === 2) {
+    // Two records present = +10
     score += 10
-  } else if (data.free && !data.disposable) {
-    // Free email (Gmail, Outlook) = moderate trust
+  } else if (dnsCount === 1) {
+    // One record = +5
     score += 5
   }
   
-  // Role-based emails penalty
+  // Domain Type Scoring (20 points max)
+  if (!data.free && !data.disposable) {
+    // Corporate/Business domain = high trustworthiness
+    score += 12
+    // Extra bonus if corporation has strong DNS security
+    if (dnsCount >= 2) score += 3
+  } else if (data.free && !data.disposable) {
+    // Known free email providers (Gmail, Outlook, etc) = trustworthy
+    // These providers have strong security and reputation
+    score += 8
+    // Extra bonus if provider has all DNS records (usually they do)
+    if (dnsCount >= 2) score += 2
+  }
+  
+  // Role-based emails penalty (reduced from -8 to -5 for combined validation)
   if (data.role) {
-    score -= 8 // Role emails are risky but not invalid
+    score -= 5 // Role emails are less common but not necessarily invalid
   }
   
-  // Accept-all domains penalty
+  // Accept-all domains penalty (reduced from -15 to -8)
   if (data.accept_all) {
-    score -= 15 // Accept-all domains are less reliable
+    score -= 8 // Accept-all domains are less reliable but not invalid
   }
   
-  // SMTP verification result (10 points max)
+  // SMTP verification result (8 points max - less critical now)
   if (data.smtpVerified) {
-    score += 10
+    score += 8
   } else if (data.smtpBlocked) {
     // Server blocked verification but passed other checks
-    score += 8
+    // Add +5 for strong non-SMTP signals
+    score += 3
   }
   
   // Breach check bonus
@@ -72,19 +94,71 @@ function calculateDeliverabilityScore(data: any): number {
     score += 3 // Not in any known breach
   }
   
-  // Domain reputation bonus
-  if (data.domain_reputation > 60) {
-    score += 5
+  // Domain reputation scoring (15 points total)
+  if (data.domain_reputation > 70) {
+    score += 8 // Excellent reputation
+  } else if (data.domain_reputation > 50) {
+    score += 4 // Good reputation
   } else if (data.domain_reputation < 30) {
-    score -= 10
+    score -= 8 // Poor reputation
   }
   
-  // Bonus for excellent security posture
-  if (!data.free && !data.disposable && data.spf && data.dkim && data.dmarc) {
-    score += 5
+  // BONUS: Excellent security posture without SMTP
+  // If domain has strong DNS records + good pattern + good reputation = extra confidence
+  if (!data.free && !data.disposable && dnsCount === 3 && data.pattern_score > 80 && data.domain_reputation > 60) {
+    score += 7 // Confidence bonus
+  } else if ((data.free || !data.disposable) && dnsCount === 3 && data.pattern_score > 70) {
+    score += 3 // Confidence bonus for free email providers with good signals
   }
   
   return Math.max(0, Math.min(100, score))
+}
+
+/**
+ * Determine verification confidence and method
+ * @param data Enriched email data with all validation results
+ * @param smtpWasSkipped Whether SMTP validation was skipped/unavailable
+ */
+function determineVerificationMethod(data: any, smtpWasSkipped: boolean): { verified_via: string; confidence: string } {
+  // If SMTP was successful, that's the definitive verification method
+  if (data.smtpVerified && !smtpWasSkipped) {
+    return { verified_via: 'smtp', confidence: 'high' }
+  }
+  
+  // Count strong signals
+  const dnsScore = (data.spf ? 1 : 0) + (data.dkim ? 1 : 0) + (data.dmarc ? 1 : 0)
+  const patternGood = data.pattern_score > 80
+  const patternDecent = data.pattern_score > 70
+  const reputationExcellent = data.domain_reputation > 70
+  const reputationGood = data.domain_reputation > 60
+  const hasMX = !!data.mx_record
+  
+  // SMTP was blocked - evaluate alternative signals
+  if (smtpWasSkipped) {
+    // Best case: All DNS records + MX + good signals
+    if (dnsScore === 3 && hasMX && reputationGood && patternGood) {
+      return { verified_via: 'dns_security', confidence: 'high' }
+    }
+    // Good case: All DNS records + MX + decent signals
+    if (dnsScore === 3 && hasMX) {
+      return { verified_via: 'dns_security', confidence: 'medium' }
+    }
+    // Medium case: Multiple DNS + MX + good reputation
+    if (dnsScore >= 2 && hasMX && reputationGood) {
+      return { verified_via: 'combined', confidence: 'medium' }
+    }
+    // Medium case: MX + strong pattern + good reputation
+    if (hasMX && patternGood && reputationGood) {
+      return { verified_via: 'combined', confidence: 'medium' }
+    }
+    // Low case: MX present with some confidence
+    if (hasMX && patternDecent) {
+      return { verified_via: 'mx_record', confidence: 'low' }
+    }
+  }
+  
+  // Fallback: Pattern-only validation (least reliable)
+  return { verified_via: 'pattern', confidence: 'low' }
 }
 
 export async function validate(emailOrOptions: string | ValidatorOptions): Promise<OutputFormat> {
@@ -134,7 +208,11 @@ export async function validate(emailOrOptions: string | ValidatorOptions): Promi
     domain_reputation_details: [],
     pattern_score: 100,
     pattern_issues: [],
-    pattern_warnings: []
+    pattern_warnings: [],
+    // Verification method tracking
+    verified_via: 'pattern',
+    verification_confidence: 'low',
+    smtp_skipped_reason: null
   }
 
   // Step 1: Regex validation
@@ -312,7 +390,9 @@ export async function validate(emailOrOptions: string | ValidatorOptions): Promi
         // SMTP passed successfully
         enrichedData.domainStatus = enrichedData.disposable ? 'disposable' : enrichedData.free ? 'free' : 'corporate'
         enrichedData.security_score = calculateDeliverabilityScore(enrichedData)
-        console.log('✅ [VALIDATION SUCCESS] Final Score:', enrichedData.security_score, '| Status:', enrichedData.domainStatus)
+        enrichedData.verified_via = 'smtp'
+        enrichedData.verification_confidence = 'high'
+        console.log('✅ [VALIDATION SUCCESS] Final Score:', enrichedData.security_score, '| Status:', enrichedData.domainStatus, '| Verified via: SMTP')
         return {
           valid: true,
           ...enrichedData,
@@ -333,9 +413,73 @@ export async function validate(emailOrOptions: string | ValidatorOptions): Promi
       console.log('⚠️ [SMTP] Skipped on Railway (port 25 blocked) - using DNS/MX validation only')
       enrichedData.smtpVerified = false
       enrichedData.smtpBlocked = true
+      enrichedData.smtp_skipped_reason = 'Port 25 blocked on Railway platform'
+      
+      // For Railway and blocked SMTP: Perform breach check for valid patterns
+      try {
+        console.log('🔄 [BREACH CHECK] Checking HaveIBeenPwned API (SMTP blocked)...')
+        const breachStatus = await checkBreachStatus(email)
+        enrichedData.breached = breachStatus.breached
+        enrichedData.breachCount = breachStatus.breachCount
+        enrichedData.breaches = breachStatus.breaches
+        console.log('✅ [BREACH] Status:', { breached: breachStatus.breached, count: breachStatus.breachCount })
+        
+        if (breachStatus.compromised) {
+          console.log('❌ [BREACH] Email found in', breachStatus.breachCount, 'breach(es)')
+          enrichedData.domainStatus = 'compromised'
+          enrichedData.security_score = 0
+          return createOutput('breach', `Email found in ${breachStatus.breachCount} known data breach(es)`, enrichedData)
+        }
+      } catch (e) {
+        console.log('⚠️ [BREACH] Check failed or rate limited (SMTP blocked scenario)')
+      }
     }
 
-    // Determine domain status (no SMTP validation requested)
+    // === VALIDATION PATH WITHOUT SMTP ===
+    // When SMTP is not available, use strong combination of DNS + Pattern + Reputation
+    
+    // Determine if we should validate this without SMTP
+    const dnsSecurityScore = (enrichedData.spf ? 1 : 0) + (enrichedData.dkim ? 1 : 0) + (enrichedData.dmarc ? 1 : 0)
+    const hasStrongDNS = dnsSecurityScore >= 2
+    const hasStrongPattern = enrichedData.pattern_score > 80
+    const hasGoodReputation = enrichedData.domain_reputation > 60
+    
+    // Determine if this looks like a valid email based on non-SMTP signals
+    let isValid = false
+    let confidenceLevel: 'high' | 'medium' | 'low' = 'low'
+    let failReason: string | null = null
+    
+    if (!enrichedData.mx_record) {
+      // CRITICAL: No MX record = definitely invalid
+      failReason = 'No MX record found for domain'
+      console.log('❌ [NO-SMTP VALIDATION] No MX record - invalid email')
+    } else if (hasStrongDNS) {
+      // Strong DNS signals + MX = definitely valid email
+      isValid = true
+      confidenceLevel = 'high'
+      console.log('✅ [NO-SMTP VALIDATION] Strong DNS signals detected - marking as valid')
+    } else if (hasStrongPattern && hasGoodReputation) {
+      // Strong pattern + good reputation + MX = likely valid
+      isValid = true
+      confidenceLevel = 'medium'
+      console.log('✅ [NO-SMTP VALIDATION] Strong pattern + reputation signals - marking as valid')
+    } else if (enrichedData.free && enrichedData.pattern_score > 70) {
+      // Free email provider (Gmail/Outlook) with MX + good pattern = definitely valid
+      isValid = true
+      confidenceLevel = 'medium'
+      console.log('✅ [NO-SMTP VALIDATION] Free email provider with valid signals - marking as valid')
+    } else if (!enrichedData.role && enrichedData.pattern_score > 75) {
+      // Not a role email, good pattern, and MX present = likely valid (low confidence)
+      isValid = true
+      confidenceLevel = 'low'
+      console.log('⚠️ [NO-SMTP VALIDATION] MX record and good pattern found - low confidence')
+    } else {
+      // Insufficient signals to verify
+      failReason = 'Insufficient validation signals without SMTP (no DNS records, weak pattern, or role-based)'
+      console.log('❌ [NO-SMTP VALIDATION] Insufficient signals - cannot confirm validity')
+    }
+    
+    // Determine domain status (no SMTP validation)
     if (enrichedData.disposable) {
       enrichedData.domainStatus = 'disposable'
     } else if (enrichedData.free) {
@@ -345,20 +489,39 @@ export async function validate(emailOrOptions: string | ValidatorOptions): Promi
     }
     
     enrichedData.security_score = calculateDeliverabilityScore(enrichedData)
-    return createOutput(undefined, undefined, enrichedData)
+    
+    // Determine verification method
+    const verificationInfo = determineVerificationMethod(enrichedData, !enrichedData.smtpVerified)
+    enrichedData.verified_via = verificationInfo.verified_via
+    enrichedData.verification_confidence = verificationInfo.confidence
+    
+    console.log('📊 [FINAL RESULT] Score:', enrichedData.security_score, '| Valid:', isValid, '| Verified via:', enrichedData.verified_via, '| Confidence:', enrichedData.verification_confidence)
+    
+    // Return consistent response with validators object
+    if (!isValid && failReason) {
+      return createOutput('smtp', failReason, enrichedData)
+    }
+    
+    return {
+      valid: true,
+      ...enrichedData,
+      validators: {
+        regex: { valid: true },
+        typo: { valid: true },
+        disposable: { valid: true },
+        mx: { valid: true },
+        smtp: { valid: false, reason: 'Skipped - validation via DNS/Pattern' },
+        pattern: { valid: enrichedData.pattern_score > 70 },
+        domain_reputation: { valid: enrichedData.domain_reputation > 40 },
+        breach_check: { valid: !enrichedData.breached }
+      }
+    }
   }
 
-  // No MX validation or not requested - return based on DNS only
-  if (enrichedData.disposable) {
-    enrichedData.domainStatus = 'disposable'
-  } else if (enrichedData.free) {
-    enrichedData.domainStatus = 'free'
-  } else {
-    enrichedData.domainStatus = 'corporate'
-  }
-
-  enrichedData.security_score = calculateDeliverabilityScore(enrichedData)
-  return createOutput(undefined, undefined, enrichedData)
+  // No MX validation or not requested - MX check is required
+  // At this point, MX validation was requested but not performed
+  // This should only happen if MX lookup failed
+  return createOutput('mx', 'MX record lookup required but not performed', enrichedData)
 }
 
 export default validate

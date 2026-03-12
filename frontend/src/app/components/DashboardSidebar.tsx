@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   X,
   LogOut,
+  Zap,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
@@ -24,6 +25,7 @@ export const DashboardSidebar = ({ onClose }: { onClose?: () => void }) => {
     { to: "/dashboard/verify", icon: Mail, label: "Verify Email" },
     { to: "/dashboard/bulk", icon: Upload, label: "Bulk Upload" },
     { to: "/dashboard/history", icon: History, label: "History" },
+    { to: "/dashboard/my-plan", icon: Zap, label: "My Plan" },
     { to: "/dashboard/settings", icon: Settings, label: "Settings" },
   ];
 

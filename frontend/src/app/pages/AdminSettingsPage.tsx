@@ -21,20 +21,23 @@ import {
   Edit2,
   Check,
   Star,
+  X,
 } from "lucide-react";
 import { useApp, PricingPlan } from "../context/AppContext";
 
 export const AdminSettingsPage = () => {
-  const { pricingPlans, addPricingPlan, deletePricingPlan } = useApp();
+  const { pricingPlans, addPricingPlan, deletePricingPlan, updatePricingPlan } =
+    useApp();
   const [activeTab, setActiveTab] = useState<"general" | "pricing">("general");
   const [planType, setPlanType] = useState<"subscription" | "onetime">(
     "subscription",
   );
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [newPlan, setNewPlan] = useState<Omit<PricingPlan, "id">>({
     name: "",
     price: 0,
     currency: "INR",
-    quota: 0,
+    quota: 15000, // Initial calculation: 500 daily credits × 30 days
     description: "",
     features: [],
     popular: false,
@@ -402,9 +405,22 @@ export const AdminSettingsPage = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              toast.info(
-                                "Feature coming soon: Use the Firestore dashboard to edit existing plans directly for now.",
-                              );
+                              setEditingPlanId(plan.id);
+                              setNewPlan({
+                                name: plan.name,
+                                price: plan.price,
+                                currency: plan.currency,
+                                quota: plan.quota,
+                                description: plan.description,
+                                features: plan.features,
+                                popular: plan.popular,
+                                active: plan.active,
+                                planType: plan.planType || "subscription",
+                                dailyCredits: plan.dailyCredits,
+                                creditAmount: plan.creditAmount,
+                                billingPeriod: plan.billingPeriod,
+                              });
+                              setPlanType(plan.planType || "subscription");
                             }}
                           >
                             <Edit2 className="w-4 h-4" />
@@ -428,12 +444,47 @@ export const AdminSettingsPage = () => {
 
             {/* Add Plan Form */}
             <div className="space-y-4">
+              {/* Manual Plan Form */}
               <Card className="border-[#E5E7EB] sticky top-8">
                 <CardHeader>
-                  <CardTitle className="text-lg">Add New Plan</CardTitle>
-                  <CardDescription>
-                    Creates a new subscription option for users
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">
+                        {editingPlanId ? "Edit Plan" : "Add New Plan (Manual)"}
+                      </CardTitle>
+                      <CardDescription>
+                        {editingPlanId
+                          ? "Update the pricing plan details"
+                          : "Creates a custom pricing plan"}
+                      </CardDescription>
+                    </div>
+                    {editingPlanId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingPlanId(null);
+                          setNewPlan({
+                            name: "",
+                            price: 0,
+                            currency: "INR",
+                            quota: 15000,
+                            description: "",
+                            features: [],
+                            popular: false,
+                            active: true,
+                            planType: "subscription",
+                            dailyCredits: 500,
+                            creditAmount: 500,
+                            billingPeriod: "monthly",
+                          });
+                          setPlanType("subscription");
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -454,7 +505,8 @@ export const AdminSettingsPage = () => {
                             type === "subscription" ? "monthly" : "one-time",
                         });
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-sm"
+                      disabled={editingPlanId !== null}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value="subscription">
                         Subscription (Daily Credits)
@@ -480,87 +532,84 @@ export const AdminSettingsPage = () => {
                     />
                   </div>
 
-                  {planType === "subscription" && (
-                    <div>
-                      <Label className="text-xs uppercase font-bold text-gray-400">
-                        Daily Credits
-                      </Label>
-                      <Input
-                        type="number"
-                        value={newPlan.dailyCredits || 500}
-                        onChange={(e) =>
-                          setNewPlan({
-                            ...newPlan,
-                            dailyCredits: parseInt(e.target.value),
-                            quota: parseInt(e.target.value) * 30, // Calculate monthly quota
-                          })
-                        }
-                        placeholder="500"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Monthly quota will be calculated automatically (daily ×
-                        30)
-                      </p>
-                    </div>
-                  )}
-
-                  {planType === "onetime" && (
-                    <div>
-                      <Label className="text-xs uppercase font-bold text-gray-400">
-                        Credit Amount
-                      </Label>
-                      <Input
-                        type="number"
-                        value={newPlan.creditAmount || 500}
-                        onChange={(e) =>
-                          setNewPlan({
-                            ...newPlan,
-                            creditAmount: parseInt(e.target.value),
-                            quota: parseInt(e.target.value),
-                          })
-                        }
-                        placeholder="1000"
-                      />
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs uppercase font-bold text-gray-400">
-                        Price (INR)
-                      </Label>
-                      <Input
-                        type="number"
-                        value={newPlan.price}
-                        onChange={(e) =>
-                          setNewPlan({
-                            ...newPlan,
-                            price: parseInt(e.target.value),
-                          })
-                        }
-                        placeholder="2000"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs uppercase font-bold text-gray-400">
-                        Quota
-                      </Label>
-                      <Input
-                        type="number"
-                        value={newPlan.quota}
-                        onChange={(e) =>
-                          setNewPlan({
-                            ...newPlan,
-                            quota: parseInt(e.target.value),
-                          })
-                        }
-                        disabled
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Auto-calculated
-                      </p>
-                    </div>
+                  <div>
+                    <Label className="text-xs uppercase font-bold text-gray-400">
+                      Price (INR)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={newPlan.price}
+                      onChange={(e) =>
+                        setNewPlan({
+                          ...newPlan,
+                          price: parseInt(e.target.value) || 0,
+                        })
+                      }
+                      placeholder="2000"
+                    />
                   </div>
+
+                  <div>
+                    <Label className="text-xs uppercase font-bold text-gray-400">
+                      {planType === "subscription"
+                        ? "Daily Credits"
+                        : "Total Credits"}
+                    </Label>
+                    <Input
+                      type="number"
+                      value={
+                        planType === "subscription"
+                          ? newPlan.dailyCredits || 0
+                          : newPlan.creditAmount || 0
+                      }
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0;
+                        if (planType === "subscription") {
+                          setNewPlan({
+                            ...newPlan,
+                            dailyCredits: value,
+                            quota: value * 30,
+                          });
+                        } else {
+                          setNewPlan({
+                            ...newPlan,
+                            creditAmount: value,
+                            quota: value,
+                          });
+                        }
+                      }}
+                      placeholder={
+                        planType === "subscription" ? "e.g. 500" : "e.g. 1000"
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs uppercase font-bold text-gray-400">
+                      Quota (Total Credits)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={newPlan.quota}
+                      onChange={(e) =>
+                        setNewPlan({
+                          ...newPlan,
+                          quota: parseInt(e.target.value) || 0,
+                        })
+                      }
+                      placeholder={
+                        planType === "subscription"
+                          ? "e.g. 15000 (monthly)"
+                          : "e.g. 1000"
+                      }
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {planType === "subscription"
+                        ? "Enter total monthly quota"
+                        : "Enter total one-time credits"}
+                    </p>
+                  </div>
+
                   <div>
                     <Label className="text-xs uppercase font-bold text-gray-400">
                       Description
@@ -575,10 +624,11 @@ export const AdminSettingsPage = () => {
                           ? "e.g. 500 credits per day / 15,000 per month"
                           : "e.g. 1,000 email verifications"
                       }
-                      className="resize-none"
+                      className="resize-none h-20"
                     />
                   </div>
-                  <div className="flex items-center justify-between">
+
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <Label className="text-sm font-medium">
                       Mark as Popular
                     </Label>
@@ -589,14 +639,16 @@ export const AdminSettingsPage = () => {
                       }
                     />
                   </div>
-                  <div className="pt-4">
+
+                  <div className="flex gap-2">
                     <Button
                       onClick={async () => {
-                        if (!newPlan.name || !newPlan.price || !newPlan.quota)
+                        if (!newPlan.name || !newPlan.price || !newPlan.quota) {
                           return toast.error(
                             "Name, Price, and Quota are required",
                           );
-                        // Add some default features if empty
+                        }
+
                         const planToSave = {
                           ...newPlan,
                           features: newPlan.features.length
@@ -607,7 +659,23 @@ export const AdminSettingsPage = () => {
                                 "24/7 Priority Support",
                               ],
                         };
-                        const success = await addPricingPlan(planToSave);
+
+                        let success = false;
+                        if (editingPlanId) {
+                          success = await updatePricingPlan(
+                            editingPlanId,
+                            planToSave,
+                          );
+                          if (success) {
+                            toast.success("Plan updated successfully!");
+                          }
+                        } else {
+                          success = await addPricingPlan(planToSave);
+                          if (success) {
+                            toast.success("Plan created successfully!");
+                          }
+                        }
+
                         if (success) {
                           setNewPlan({
                             name: "",
@@ -626,13 +694,40 @@ export const AdminSettingsPage = () => {
                                 ? "monthly"
                                 : "one-time",
                           });
+                          setEditingPlanId(null);
                         }
                       }}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       <Plus className="w-4 h-4 mr-2" />
-                      Create Plan
+                      {editingPlanId ? "Update Plan" : "Create Plan"}
                     </Button>
+                    {editingPlanId && (
+                      <Button
+                        onClick={() => {
+                          setEditingPlanId(null);
+                          setNewPlan({
+                            name: "",
+                            price: 0,
+                            currency: "INR",
+                            quota: 15000,
+                            description: "",
+                            features: [],
+                            popular: false,
+                            active: true,
+                            planType: "subscription",
+                            dailyCredits: 500,
+                            creditAmount: 500,
+                            billingPeriod: "monthly",
+                          });
+                          setPlanType("subscription");
+                        }}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

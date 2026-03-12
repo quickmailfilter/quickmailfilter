@@ -36,6 +36,7 @@ import { BulkUploadPage } from "./pages/BulkUploadPage";
 import { BulkProcessPage } from "./pages/BulkProcessPage";
 import { BulkResultsPage } from "./pages/BulkResultsPage";
 import { HistoryPage } from "./pages/HistoryPage";
+import { MyPlanPage } from "./pages/MyPlanPage";
 import { UserSettingsPage } from "./pages/UserSettingsPage";
 import { PaymentSuccessPage } from "./pages/PaymentSuccessPage";
 
@@ -310,6 +311,16 @@ function AppContent() {
             <ProtectedRoute>
               <DashboardLayout>
                 <HistoryPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/my-plan"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <MyPlanPage />
               </DashboardLayout>
             </ProtectedRoute>
           }

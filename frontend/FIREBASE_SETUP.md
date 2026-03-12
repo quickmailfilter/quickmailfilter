@@ -41,9 +41,16 @@ service cloud.firestore {
       allow write: if request.auth != null; // tighten this when adding payment gateway
     }
 
+    // Pricing Plans: anyone can read (public); only admins can write
+    match /plans/{docId} {
+      allow read: if true; // Public - anyone can view pricing
+      allow create, update, delete: if request.auth != null && isAdmin();
+    }
+
     // Helper function
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+             get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.email != null;
     }
   }
 }

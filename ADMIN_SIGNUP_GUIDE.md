@@ -170,22 +170,60 @@ const ADMIN_REGISTRATION_CODE =
 
 ## Firestore Security Rules
 
-### Protect Admin Collection
+### Complete Security Rules
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Users collection: user can read/write their own; admin can read all
+    match /users/{userId} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && isAdmin();
+    }
+
     // Admin collection - only admins can access
     match /admin/{adminId} {
-      allow read, write: if request.auth.uid == adminId;
+      allow read: if request.auth.uid == adminId || isAdmin();
+      allow write: if request.auth.uid == adminId;
       allow create: if false; // Only via backend signup
     }
 
-    // Users collection - users access their own
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-      allow list: if request.auth.uid in resource.data.adminIds;
+    // Verifications: user can read/write their own; admin can read all
+    match /verifications/{docId} {
+      allow read: if request.auth != null &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+    }
+
+    // Bulk uploads: user can read/write their own; admin can read all
+    match /bulkUploads/{docId} {
+      allow read: if request.auth != null &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+    }
+
+    // Payments: user can read their own; only admin can write
+    match /payments/{docId} {
+      allow read: if request.auth != null &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if request.auth != null && isAdmin();
+    }
+
+    // Pricing Plans: anyone can read (public); only admins can write
+    match /plans/{docId} {
+      allow read: if true; // Public - anyone can view pricing
+      allow create, update, delete: if request.auth != null && isAdmin();
+    }
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+             get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.email != null;
     }
   }
 }
