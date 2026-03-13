@@ -73,6 +73,20 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// DEBUG: Check configuration status (remove in production)
+app.get("/api/debug/config", (req, res) => {
+  res.json({
+    razorpayConfigured,
+    razorpayKeyIdExists: !!razorpayKeyId,
+    razorpayKeySecretExists: !!razorpayKeySecret,
+    razorpayKeyIdLength: razorpayKeyId?.length || 0,
+    razorpayKeySecretLength: razorpayKeySecret?.length || 0,
+    nodeEnv: NODE_ENV,
+    corsOrigin: process.env.CORS_ORIGIN,
+    port: PORT,
+  });
+});
+
 // Email validation endpoint
 app.post("/api/validate", async (req, res) => {
   const { email } = req.body;
@@ -185,7 +199,10 @@ app.post("/api/payment/create-order", async (req, res) => {
   if (!razorpayConfigured) {
     return res.status(503).json({
       error: "Payment service unavailable",
-      message: "Razorpay is not configured",
+      message:
+        "Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables. See RAZORPAY_CONFIGURATION.md for setup instructions.",
+      setup_guide:
+        "https://github.com/yourusername/email-validator/blob/main/RAZORPAY_CONFIGURATION.md",
     });
   }
 
@@ -482,6 +499,14 @@ app.listen(PORT, () => {
 📍 Health Check:
    GET http://localhost:${PORT}/api/health
 
+� Configuration Status:
+   ${
+     razorpayConfigured
+       ? "✅ Razorpay: CONFIGURED"
+       : "❌ Razorpay: NOT CONFIGURED"
+   }
+   Debug: GET http://localhost:${PORT}/api/debug/config
+
 📧 Email Validation:
    POST http://localhost:${PORT}/api/validate
    Body: { "email": "user@example.com" }
@@ -489,6 +514,13 @@ app.listen(PORT, () => {
 📨 Bulk Validation:
    POST http://localhost:${PORT}/api/validate-bulk
    Body: { "emails": ["user1@example.com", "user2@example.com"] }
+
+💳 Payment:
+   ${
+     razorpayConfigured
+       ? "✅ POST http://localhost:" + PORT + "/api/payment/create-order"
+       : "❌ Payment endpoint unavailable (Razorpay not configured)"
+   }
 
 Documentation: See README.md for full API documentation
   `);

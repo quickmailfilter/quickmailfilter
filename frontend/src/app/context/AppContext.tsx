@@ -324,8 +324,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       });
 
       setVerificationHistory(verifications);
-    } catch (error) {
-      console.error("Error loading verification history:", error);
+    } catch (error: any) {
+      // Check if it's an index error
+      if (error.message?.includes("requires an index")) {
+        console.warn(
+          "Firestore index not created for verifications. Please see FIRESTORE_INDEXES_SETUP.md",
+        );
+      } else {
+        console.error("Error loading verification history:", error);
+      }
+      // Set empty array to allow app to continue
+      setVerificationHistory([]);
     }
   };
 
@@ -360,8 +369,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       });
 
       setBulkUploads(uploads);
-    } catch (error) {
-      console.error("Error loading bulk uploads:", error);
+    } catch (error: any) {
+      if (error.message?.includes("requires an index")) {
+        console.warn(
+          "Firestore index not created for bulkUploads. Please see FIRESTORE_INDEXES_SETUP.md",
+        );
+      } else {
+        console.error("Error loading bulk uploads:", error);
+      }
+      setBulkUploads([]);
     }
   };
 
@@ -391,8 +407,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       });
 
       setPayments(paymentList);
-    } catch (error) {
-      console.error("Error loading payments:", error);
+    } catch (error: any) {
+      if (error.message?.includes("requires an index")) {
+        console.warn(
+          "Firestore index not created for payments. Please see FIRESTORE_INDEXES_SETUP.md",
+        );
+      } else {
+        console.error("Error loading payments:", error);
+      }
+      setPayments([]);
     }
   };
 
@@ -616,6 +639,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       toast.success("Logged in with Google successfully!");
       return true;
     } catch (error: any) {
+      // Silently handle popup closed by user - this is normal user behavior
+      if (error.code === "auth/popup-closed-by-user") {
+        console.debug("Google login popup closed by user");
+        return false;
+      }
+
+      // Handle account exists with different credentials
+      if (error.code === "auth/account-exists-with-different-credential") {
+        toast.error(
+          "This email is already registered with a different login method",
+        );
+        return false;
+      }
+
+      // Handle network errors
+      if (error.code === "auth/network-request-failed") {
+        toast.error("Network error. Please check your connection");
+        return false;
+      }
+
+      // Handle other errors
       toast.error(error.message || "Failed to login with Google");
       console.error("Google login error:", error);
       return false;
