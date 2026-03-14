@@ -40,7 +40,12 @@ import { toast } from "sonner";
 
 export type UserRole = "user" | "admin";
 
-export type EmailStatus = "valid" | "invalid" | "risky" | "unknown";
+export type EmailStatus =
+  | "valid"
+  | "catch-all"
+  | "invalid"
+  | "risky"
+  | "unknown";
 
 export interface PricingPlan {
   id: string;
@@ -103,6 +108,7 @@ export interface BulkUpload {
   totalEmails: number;
   processed: number;
   validCount: number;
+  catchAllCount: number;
   invalidCount: number;
   riskyCount: number;
   unknownCount: number;
@@ -357,6 +363,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           totalEmails: data.totalEmails,
           processed: data.processed,
           validCount: data.validCount,
+          catchAllCount: data.catchAllCount || 0,
           invalidCount: data.invalidCount,
           riskyCount: data.riskyCount,
           unknownCount: data.unknownCount,
@@ -695,26 +702,50 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       // Map validator result to our EmailVerification format
       // Use logical defaults to avoid 'undefined' values which Firebase rejects
-      const isRisky = ["risky", "suspicious", "compromised"].includes(
+      const securityScore = validatorResult.security_score ?? 75;
+      const isExplicitlyRisky = ["risky", "suspicious", "compromised"].includes(
         validatorResult.domainStatus,
       );
+      // Classify: risky = low confidence (<70), catch-all = accept-all domain
+      const isRisky =
+        isExplicitlyRisky || (validatorResult.valid && securityScore < 70);
+      const isCatchAll =
+        validatorResult.valid &&
+        !isRisky &&
+        validatorResult.accept_all === true;
+
+      const emailStatus: EmailStatus = !validatorResult.valid
+        ? isExplicitlyRisky
+          ? "risky"
+          : "invalid"
+        : isRisky
+          ? "risky"
+          : isCatchAll
+            ? "catch-all"
+            : "valid";
+
+      const emailReason = !validatorResult.valid
+        ? validatorResult.reason &&
+          validatorResult.validators?.[validatorResult.reason]
+          ? `${validatorResult.reason}: ${validatorResult.validators[validatorResult.reason].reason}`
+          : "Verification failed"
+        : isRisky
+          ? `Low confidence (${securityScore}%): limited domain signals`
+          : isCatchAll
+            ? "Accept-all domain: mailbox existence unverifiable"
+            : "All checks passed";
 
       const verification: EmailVerification = {
         id: `ver-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         email,
-        status: validatorResult.valid ? "valid" : isRisky ? "risky" : "invalid",
+        status: emailStatus,
         formatValid: validatorResult.validators?.regex?.valid ?? true,
         domainExists: !!validatorResult.mx_record,
         mxRecordFound: !!validatorResult.mx_record,
         disposable: !!validatorResult.disposable,
         roleBased: !!validatorResult.role,
         catchAll: !!validatorResult.accept_all,
-        reason: validatorResult.valid
-          ? "All checks passed"
-          : validatorResult.reason &&
-              validatorResult.validators?.[validatorResult.reason]
-            ? `${validatorResult.reason}: ${validatorResult.validators[validatorResult.reason].reason}`
-            : "Verification failed",
+        reason: emailReason,
         confidence: validatorResult.security_score ?? 75,
         timestamp: new Date(),
         userId: user?.id || "guest",
@@ -788,6 +819,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         totalEmails,
         processed: 0,
         validCount: 0,
+        catchAllCount: 0,
         invalidCount: 0,
         riskyCount: 0,
         unknownCount: 0,
@@ -805,6 +837,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         totalEmails,
         processed: 0,
         validCount: 0,
+        catchAllCount: 0,
         invalidCount: 0,
         riskyCount: 0,
         unknownCount: 0,
@@ -843,6 +876,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       });
 
       let validCount = 0;
+      let catchAllCount = 0;
       let invalidCount = 0;
       let riskyCount = 0;
       let unknownCount = 0;
@@ -859,6 +893,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
           // Count by status
           if (verification.status === "valid") validCount++;
+          else if (verification.status === "catch-all") catchAllCount++;
           else if (verification.status === "invalid") invalidCount++;
           else if (verification.status === "risky") riskyCount++;
           else unknownCount++;
@@ -868,6 +903,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             await updateDoc(uploadRef, {
               processed: i + 1,
               validCount,
+              catchAllCount,
               invalidCount,
               riskyCount,
               unknownCount,
@@ -884,6 +920,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         status: "completed",
         processed: emails.length,
         validCount,
+        catchAllCount,
         invalidCount,
         riskyCount,
         unknownCount,
@@ -899,6 +936,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 status: "completed",
                 processed: emails.length,
                 validCount,
+                catchAllCount,
                 invalidCount,
                 riskyCount,
                 unknownCount,

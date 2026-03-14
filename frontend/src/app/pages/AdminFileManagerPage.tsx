@@ -1,60 +1,73 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { toast } from 'sonner';
-import { Upload, Trash2, Download, File, Folder, Search, Filter } from 'lucide-react';
+import React, { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { toast } from "sonner";
+import {
+  Upload,
+  Trash2,
+  Download,
+  File,
+  Folder,
+  Search,
+  Filter,
+} from "lucide-react";
 
 interface FileItem {
   id: string;
   name: string;
-  type: 'file' | 'folder';
+  type: "file" | "folder";
   size: number;
   uploadedAt: string;
   uploadedBy: string;
 }
 
 export const AdminFileManagerPage = () => {
-  const [currentPath, setCurrentPath] = useState('/');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPath, setCurrentPath] = useState("/");
+  const [searchTerm, setSearchTerm] = useState("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<FileItem[]>([
     {
-      id: '1',
-      name: 'Documents',
-      type: 'folder',
+      id: "1",
+      name: "Documents",
+      type: "folder",
       size: 0,
-      uploadedAt: '2026-02-10',
-      uploadedBy: 'Admin',
+      uploadedAt: "2026-02-10",
+      uploadedBy: "Admin",
     },
     {
-      id: '2',
-      name: 'Reports',
-      type: 'folder',
+      id: "2",
+      name: "Reports",
+      type: "folder",
       size: 0,
-      uploadedAt: '2026-02-10',
-      uploadedBy: 'Admin',
+      uploadedAt: "2026-02-10",
+      uploadedBy: "Admin",
     },
     {
-      id: '3',
-      name: 'System_Backup_2026.zip',
-      type: 'file',
+      id: "3",
+      name: "System_Backup_2026.zip",
+      type: "file",
       size: 2048,
-      uploadedAt: '2026-02-09',
-      uploadedBy: 'Admin',
+      uploadedAt: "2026-02-09",
+      uploadedBy: "Admin",
     },
     {
-      id: '4',
-      name: 'Email_List_Jan.csv',
-      type: 'file',
+      id: "4",
+      name: "Email_List_Jan.csv",
+      type: "file",
       size: 512,
-      uploadedAt: '2026-02-08',
-      uploadedBy: 'User_123',
+      uploadedAt: "2026-02-08",
+      uploadedBy: "User_123",
     },
   ]);
 
-  const filteredFiles = files.filter(file =>
-    file.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredFiles = files.filter((file) =>
+    file.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,20 +78,20 @@ export const AdminFileManagerPage = () => {
         const newFile: FileItem = {
           id: Date.now().toString() + i,
           name: file.name,
-          type: 'file',
+          type: "file",
           size: Math.round(file.size / 1024),
-          uploadedAt: new Date().toISOString().split('T')[0],
-          uploadedBy: 'Admin',
+          uploadedAt: new Date().toISOString().split("T")[0],
+          uploadedBy: "Admin",
         };
-        setFiles(prev => [...prev, newFile]);
+        setFiles((prev) => [...prev, newFile]);
       }
       toast.success(`${uploadedFiles.length} file(s) uploaded successfully`);
     }
   };
 
   const handleDelete = (id: string) => {
-    const fileName = files.find(f => f.id === id)?.name;
-    setFiles(prev => prev.filter(f => f.id !== id));
+    const fileName = files.find((f) => f.id === id)?.name;
+    setFiles((prev) => prev.filter((f) => f.id !== id));
     toast.success(`${fileName} deleted successfully`);
   };
 
@@ -107,19 +120,23 @@ export const AdminFileManagerPage = () => {
           <CardTitle>Upload Files</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-8 text-center hover:border-[#2563EB] transition-colors">
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-8 text-center hover:border-[#2563EB] hover:bg-blue-50 transition-colors cursor-pointer"
+          >
             <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <Label htmlFor="fileInput" className="cursor-pointer">
-              <p className="text-lg font-medium text-gray-900 mb-1">Drop files here or click to select</p>
-              <p className="text-sm text-gray-600">Maximum file size: 100 MB</p>
-              <Input
-                id="fileInput"
-                type="file"
-                multiple
-                onChange={handleUpload}
-                className="hidden"
-              />
-            </Label>
+            <p className="text-lg font-medium text-gray-900 mb-1">
+              Drop files here or click to select
+            </p>
+            <p className="text-sm text-gray-600">Maximum file size: 100 MB</p>
+            <input
+              ref={fileInputRef}
+              id="fileInput"
+              type="file"
+              multiple
+              onChange={handleUpload}
+              className="hidden"
+            />
           </div>
         </CardContent>
       </Card>
@@ -139,14 +156,21 @@ export const AdminFileManagerPage = () => {
                   className="pl-10 w-64"
                 />
               </div>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
                 <Filter className="w-4 h-4" />
                 Filter
               </Button>
             </div>
           </div>
           <p className="text-sm text-gray-600 mt-2">
-            Current path: <span className="font-mono font-medium text-gray-900">{currentPath}</span>
+            Current path:{" "}
+            <span className="font-mono font-medium text-gray-900">
+              {currentPath}
+            </span>
           </p>
         </CardHeader>
         <CardContent>
@@ -160,36 +184,61 @@ export const AdminFileManagerPage = () => {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#E5E7EB]">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Name</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Type</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Size</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Uploaded By</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Date</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Actions</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                      Name
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                      Type
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                      Size
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                      Uploaded By
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                      Date
+                    </th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredFiles.map((file) => (
-                    <tr key={file.id} className="border-b border-[#E5E7EB] hover:bg-[#F8FAFC] transition-colors">
+                    <tr
+                      key={file.id}
+                      className="border-b border-[#E5E7EB] hover:bg-[#F8FAFC] transition-colors"
+                    >
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          {file.type === 'folder' ? (
+                          {file.type === "folder" ? (
                             <Folder className="w-5 h-5 text-blue-500 flex-shrink-0" />
                           ) : (
                             <File className="w-5 h-5 text-gray-400 flex-shrink-0" />
                           )}
-                          <span className="font-medium text-gray-900">{file.name}</span>
+                          <span className="font-medium text-gray-900">
+                            {file.name}
+                          </span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-gray-600 capitalize">{file.type}</td>
-                      <td className="py-3 px-4 text-gray-600">
-                        {file.type === 'folder' ? '-' : formatFileSize(file.size)}
+                      <td className="py-3 px-4 text-gray-600 capitalize">
+                        {file.type}
                       </td>
-                      <td className="py-3 px-4 text-gray-600">{file.uploadedBy}</td>
-                      <td className="py-3 px-4 text-gray-600">{file.uploadedAt}</td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {file.type === "folder"
+                          ? "-"
+                          : formatFileSize(file.size)}
+                      </td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {file.uploadedBy}
+                      </td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {file.uploadedAt}
+                      </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {file.type === 'file' && (
+                          {file.type === "file" && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -227,16 +276,24 @@ export const AdminFileManagerPage = () => {
           <div className="grid md:grid-cols-3 gap-6">
             <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E5E7EB]">
               <p className="text-sm text-gray-600 mb-2">Total Files</p>
-              <p className="text-3xl font-bold text-gray-900">{files.filter(f => f.type === 'file').length}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {files.filter((f) => f.type === "file").length}
+              </p>
             </div>
             <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E5E7EB]">
               <p className="text-sm text-gray-600 mb-2">Total Folders</p>
-              <p className="text-3xl font-bold text-gray-900">{files.filter(f => f.type === 'folder').length}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {files.filter((f) => f.type === "folder").length}
+              </p>
             </div>
             <div className="p-4 bg-[#F8FAFC] rounded-lg border border-[#E5E7EB]">
               <p className="text-sm text-gray-600 mb-2">Total Size</p>
               <p className="text-3xl font-bold text-gray-900">
-                {formatFileSize(files.filter(f => f.type === 'file').reduce((acc, f) => acc + f.size, 0))}
+                {formatFileSize(
+                  files
+                    .filter((f) => f.type === "file")
+                    .reduce((acc, f) => acc + f.size, 0),
+                )}
               </p>
             </div>
           </div>

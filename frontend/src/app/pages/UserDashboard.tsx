@@ -1,34 +1,68 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import { KPICard } from '../components/KPICard';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Mail, Upload, CheckCircle2, XCircle, AlertTriangle, TrendingUp } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { StatusBadge } from '../components/StatusBadge';
+import React from "react";
+import { Link } from "react-router-dom";
+import { useApp } from "../context/AppContext";
+import { KPICard } from "../components/KPICard";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import {
+  Mail,
+  Upload,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  TrendingUp,
+} from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { StatusBadge } from "../components/StatusBadge";
 
 export const UserDashboard = () => {
   const { user, verificationHistory } = useApp();
 
-  const validCount = verificationHistory.filter(v => v.status === 'valid').length;
-  const invalidCount = verificationHistory.filter(v => v.status === 'invalid').length;
-  const riskyCount = verificationHistory.filter(v => v.status === 'risky').length;
+  const validCount = verificationHistory.filter(
+    (v) => v.status === "valid",
+  ).length;
+  const catchAllCount = verificationHistory.filter(
+    (v) => v.status === "catch-all",
+  ).length;
+  const invalidCount = verificationHistory.filter(
+    (v) => v.status === "invalid",
+  ).length;
+  const riskyCount = verificationHistory.filter(
+    (v) => v.status === "risky",
+  ).length;
 
   const pieData = [
-    { name: 'Valid', value: validCount, color: '#10B981' },
-    { name: 'Invalid', value: invalidCount, color: '#EF4444' },
-    { name: 'Risky', value: riskyCount, color: '#F59E0B' },
+    { name: "Valid", value: validCount, color: "#10B981" },
+    { name: "Catch-All", value: catchAllCount, color: "#3B82F6" },
+    { name: "Invalid", value: invalidCount, color: "#EF4444" },
+    { name: "Risky", value: riskyCount, color: "#F59E0B" },
   ];
 
   const trendData = [
-    { date: 'Mon', verifications: 45 },
-    { date: 'Tue', verifications: 52 },
-    { date: 'Wed', verifications: 38 },
-    { date: 'Thu', verifications: 65 },
-    { date: 'Fri', verifications: 58 },
-    { date: 'Sat', verifications: 30 },
-    { date: 'Sun', verifications: 25 },
+    { date: "Mon", verifications: 45 },
+    { date: "Tue", verifications: 52 },
+    { date: "Wed", verifications: 38 },
+    { date: "Thu", verifications: 65 },
+    { date: "Fri", verifications: 58 },
+    { date: "Sat", verifications: 30 },
+    { date: "Sun", verifications: 25 },
   ];
 
   const quotaPercentage = user ? (user.usedQuota / user.monthlyQuota) * 100 : 0;
@@ -37,15 +71,24 @@ export const UserDashboard = () => {
     <div className="p-4 sm:p-8 space-y-6 sm:space-y-8 overflow-hidden max-w-7xl mx-auto">
       {/* Welcome Header */}
       <div data-aos="fade-down">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-[#1E3A8A]">Welcome back, {user?.name}!</h1>
-        <p className="text-gray-600 text-sm sm:text-base">Here's your email verification overview</p>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-[#1E3A8A]">
+          Welcome back, {user?.name}!
+        </h1>
+        <p className="text-gray-600 text-sm sm:text-base">
+          Here's your email verification overview
+        </p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6" data-aos="fade-up">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"
+        data-aos="fade-up"
+      >
         <KPICard
           title="Current Plan"
-          value={user?.plan.charAt(0).toUpperCase() + user?.plan.slice(1) || 'Free'}
+          value={
+            user?.plan.charAt(0).toUpperCase() + user?.plan.slice(1) || "Free"
+          }
           icon={TrendingUp}
           subtitle="Active subscription"
           color="blue"
@@ -74,7 +117,11 @@ export const UserDashboard = () => {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" data-aos="fade-up" data-aos-delay="200">
+      <div
+        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+        data-aos="fade-up"
+        data-aos-delay="200"
+      >
         {/* Verification Trend */}
         <Card className="border-[#E5E7EB]">
           <CardHeader>
@@ -88,12 +135,12 @@ export const UserDashboard = () => {
                 <YAxis stroke="#64748B" />
                 <Tooltip />
                 <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="verifications" 
-                  stroke="#2563EB" 
+                <Line
+                  type="monotone"
+                  dataKey="verifications"
+                  stroke="#2563EB"
                   strokeWidth={2}
-                  dot={{ fill: '#2563EB', r: 4 }}
+                  dot={{ fill: "#2563EB", r: 4 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -113,7 +160,9 @@ export const UserDashboard = () => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) =>
+                    `${name}: ${(percent * 100).toFixed(0)}%`
+                  }
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
@@ -130,9 +179,13 @@ export const UserDashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-aos="fade-up" data-aos-delay="300">
-        <Link 
-          to="/dashboard/verify" 
+      <div
+        className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        data-aos="fade-up"
+        data-aos-delay="300"
+      >
+        <Link
+          to="/dashboard/verify"
           className="group relative overflow-hidden bg-white p-6 sm:p-8 rounded-2xl border border-[#E5E7EB] hover:border-[#2563EB] shadow-sm hover:shadow-xl transition-all duration-300"
         >
           <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -143,8 +196,12 @@ export const UserDashboard = () => {
               <Mail className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-[#1E3A8A] mb-1">Verify Single Email</h3>
-              <p className="text-gray-500 text-sm">Real-time deep technical analysis of any email address.</p>
+              <h3 className="text-xl font-bold text-[#1E3A8A] mb-1">
+                Verify Single Email
+              </h3>
+              <p className="text-gray-500 text-sm">
+                Real-time deep technical analysis of any email address.
+              </p>
             </div>
             <div className="mt-auto pt-4 flex items-center text-[#2563EB] font-bold text-sm">
               Start verifying <TrendingUp className="w-4 h-4 ml-2" />
@@ -152,8 +209,8 @@ export const UserDashboard = () => {
           </div>
         </Link>
 
-        <Link 
-          to="/dashboard/bulk" 
+        <Link
+          to="/dashboard/bulk"
           className="group relative overflow-hidden bg-[#1E3A8A] p-6 sm:p-8 rounded-2xl border border-blue-900 shadow-xl hover:shadow-2xl transition-all duration-300 text-white"
         >
           <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -164,8 +221,12 @@ export const UserDashboard = () => {
               <Upload className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-xl font-bold mb-1 text-white">Upload Bulk List</h3>
-              <p className="text-blue-200 text-sm">Clean thousands of emails at once with high-speed processing.</p>
+              <h3 className="text-xl font-bold mb-1 text-white">
+                Upload Bulk List
+              </h3>
+              <p className="text-blue-200 text-sm">
+                Clean thousands of emails at once with high-speed processing.
+              </p>
             </div>
             <div className="mt-auto pt-4 flex items-center text-blue-200 font-bold text-sm">
               Clean your list <TrendingUp className="w-4 h-4 ml-2" />
@@ -175,12 +236,18 @@ export const UserDashboard = () => {
       </div>
 
       {/* Recent Activity */}
-      <Card className="border-[#E5E7EB]" data-aos="fade-up" data-aos-delay="400">
+      <Card
+        className="border-[#E5E7EB]"
+        data-aos="fade-up"
+        data-aos-delay="400"
+      >
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Recent Verifications</CardTitle>
             <Link to="/dashboard/history">
-              <Button variant="ghost" size="sm">View All</Button>
+              <Button variant="ghost" size="sm">
+                View All
+              </Button>
             </Link>
           </div>
         </CardHeader>
@@ -193,8 +260,8 @@ export const UserDashboard = () => {
           ) : (
             <div className="space-y-3">
               {verificationHistory.slice(0, 5).map((verification, idx) => (
-                <div 
-                  key={verification.id} 
+                <div
+                  key={verification.id}
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-white border border-[#F1F5F9] hover:border-[#E2E8F0] hover:shadow-md transition-all gap-3 sm:gap-4"
                   data-aos="fade-left"
                   data-aos-delay={idx * 50}
@@ -203,7 +270,9 @@ export const UserDashboard = () => {
                     <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shrink-0">
                       <Mail className="w-4 h-4" />
                     </div>
-                    <span className="font-semibold text-gray-900 truncate">{verification.email}</span>
+                    <span className="font-semibold text-gray-900 truncate">
+                      {verification.email}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between sm:justify-start gap-4 ml-11 sm:ml-0">
                     <span className="text-sm text-gray-500 font-medium">

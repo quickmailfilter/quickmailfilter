@@ -1,41 +1,49 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { StatusBadge } from '../components/StatusBadge';
-import { 
+import React, { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useApp } from "../context/AppContext";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { StatusBadge } from "../components/StatusBadge";
+import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '../components/ui/table';
+} from "../components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../components/ui/select';
-import { Download, FileText, Search, PieChart } from 'lucide-react';
-import { toast } from 'sonner';
+} from "../components/ui/select";
+import { Download, FileText, Search, PieChart } from "lucide-react";
+import { toast } from "sonner";
 
 export const BulkResultsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { bulkUploads } = useApp();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const upload = bulkUploads.find(u => u.id === id);
+  const upload = bulkUploads.find((u) => u.id === id);
   const results = upload?.results || [];
 
-  const filteredResults = results.filter(result => {
-    const matchesSearch = result.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || result.status === statusFilter;
+  const filteredResults = results.filter((result) => {
+    const matchesSearch = result.email
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || result.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -43,7 +51,9 @@ export const BulkResultsPage = () => {
     return (
       <div className="p-8 text-center mt-20">
         <h2 className="text-xl font-bold mb-4">Results Not Found</h2>
-        <Button onClick={() => navigate('/dashboard/bulk')}>Back to Bulk Upload</Button>
+        <Button onClick={() => navigate("/dashboard/bulk")}>
+          Back to Bulk Upload
+        </Button>
       </div>
     );
   }
@@ -51,91 +61,158 @@ export const BulkResultsPage = () => {
   const handleDownloadCSV = () => {
     // Mock CSV download
     const csv = [
-      ['Email', 'Status', 'Confidence', 'Reason'],
-      ...filteredResults.map(r => [r.email, r.status, r.confidence, r.reason])
-    ].map(row => row.join(',')).join('\n');
+      ["Email", "Status", "Confidence", "Reason"],
+      ...filteredResults.map((r) => [
+        r.email,
+        r.status,
+        r.confidence,
+        r.reason,
+      ]),
+    ]
+      .map((row) => row.join(","))
+      .join("\n");
 
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'verified-emails.csv';
+    a.download = "verified-emails.csv";
     a.click();
-    toast.success('CSV downloaded successfully!');
+    toast.success("CSV downloaded successfully!");
   };
 
   const handleDownloadValidOnly = () => {
     const validEmails = filteredResults
-      .filter(r => r.status === 'valid')
-      .map(r => r.email)
-      .join('\n');
+      .filter((r) => r.status === "valid" || r.status === "catch-all")
+      .map((r) => r.email)
+      .join("\n");
 
-    const blob = new Blob([validEmails], { type: 'text/plain' });
+    const blob = new Blob([validEmails], { type: "text/plain" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'valid-emails.txt';
+    a.download = "valid-emails.txt";
     a.click();
-    toast.success('Valid emails downloaded!');
+    toast.success("Valid emails downloaded!");
   };
 
-  const validCount = results.filter(r => r.status === 'valid').length;
-  const invalidCount = results.filter(r => r.status === 'invalid').length;
-  const riskyCount = results.filter(r => r.status === 'risky').length;
+  const validCount = results.filter((r) => r.status === "valid").length;
+  const catchAllCount = results.filter((r) => r.status === "catch-all").length;
+  const invalidCount = results.filter((r) => r.status === "invalid").length;
+  const riskyCount = results.filter((r) => r.status === "risky").length;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#1E3A8A]">Verification Results</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#1E3A8A]">
+            Verification Results
+          </h1>
           <p className="text-gray-500 text-sm sm:text-base">
             Complete analysis of {results.length} email addresses
           </p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/dashboard/bulk')} className="w-full sm:w-auto">
+        <Button
+          variant="outline"
+          onClick={() => navigate("/dashboard/bulk")}
+          className="w-full sm:w-auto"
+        >
           New Upload
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
         <Card className="border-[#E5E7EB]">
           <CardContent className="p-4 sm:p-6 text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{upload.totalEmails}</div>
-            <div className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">Total</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+              {upload.totalEmails}
+            </div>
+            <div className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">
+              Total
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-[#E5E7EB] border-l-4 border-l-green-500">
           <CardContent className="p-4 sm:p-6 text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-1">{upload.validCount}</div>
-            <div className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">Valid ({upload.totalEmails > 0 ? ((upload.validCount/upload.totalEmails)*100).toFixed(0) : 0}%)</div>
+            <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-1">
+              {upload.validCount}
+            </div>
+            <div className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">
+              Valid (
+              {upload.totalEmails > 0
+                ? ((upload.validCount / upload.totalEmails) * 100).toFixed(0)
+                : 0}
+              %)
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-[#E5E7EB] border-l-4 border-l-blue-500">
+          <CardContent className="p-4 sm:p-6 text-center">
+            <div className="text-2xl sm:text-3xl font-bold text-blue-600 mb-1">
+              {upload.catchAllCount || 0}
+            </div>
+            <div className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">
+              Catch-All (
+              {upload.totalEmails > 0
+                ? (
+                    ((upload.catchAllCount || 0) / upload.totalEmails) *
+                    100
+                  ).toFixed(0)
+                : 0}
+              %)
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-[#E5E7EB] border-l-4 border-l-red-500">
           <CardContent className="p-4 sm:p-6 text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-red-600 mb-1">{upload.invalidCount}</div>
-            <div className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">Invalid ({upload.totalEmails > 0 ? ((upload.invalidCount/upload.totalEmails)*100).toFixed(0) : 0}%)</div>
+            <div className="text-2xl sm:text-3xl font-bold text-red-600 mb-1">
+              {upload.invalidCount}
+            </div>
+            <div className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">
+              Invalid (
+              {upload.totalEmails > 0
+                ? ((upload.invalidCount / upload.totalEmails) * 100).toFixed(0)
+                : 0}
+              %)
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-[#E5E7EB] border-l-4 border-l-amber-500">
           <CardContent className="p-4 sm:p-6 text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-amber-600 mb-1">{upload.riskyCount}</div>
-            <div className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">Risky ({upload.totalEmails > 0 ? ((upload.riskyCount/upload.totalEmails)*100).toFixed(0) : 0}%)</div>
+            <div className="text-2xl sm:text-3xl font-bold text-amber-600 mb-1">
+              {upload.riskyCount}
+            </div>
+            <div className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">
+              Risky (
+              {upload.totalEmails > 0
+                ? ((upload.riskyCount / upload.totalEmails) * 100).toFixed(0)
+                : 0}
+              %)
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <Button onClick={handleDownloadValidOnly} className="bg-green-600 hover:bg-green-700 font-semibold shadow-md">
+        <Button
+          onClick={handleDownloadValidOnly}
+          className="bg-green-600 hover:bg-green-700 font-semibold shadow-md"
+        >
           <Download className="w-4 h-4 mr-2" />
           Download Valid Only
         </Button>
-        <Button onClick={handleDownloadCSV} variant="outline" className="border-blue-200 hover:bg-blue-50">
+        <Button
+          onClick={handleDownloadCSV}
+          variant="outline"
+          className="border-blue-200 hover:bg-blue-50"
+        >
           <FileText className="w-4 h-4 mr-2" />
           Export Full (CSV)
         </Button>
@@ -165,6 +242,7 @@ export const BulkResultsPage = () => {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="valid">Valid</SelectItem>
+                <SelectItem value="catch-all">Catch-All</SelectItem>
                 <SelectItem value="invalid">Invalid</SelectItem>
                 <SelectItem value="risky">Risky</SelectItem>
                 <SelectItem value="unknown">Unknown</SelectItem>
@@ -177,7 +255,9 @@ export const BulkResultsPage = () => {
       {/* Results Table */}
       <Card className="border-[#E5E7EB] shadow-md overflow-hidden">
         <CardHeader className="bg-[#1E3A8A] border-b border-blue-900/10">
-          <CardTitle className="text-white">Detailed Results ({filteredResults.length})</CardTitle>
+          <CardTitle className="text-white">
+            Detailed Results ({filteredResults.length})
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -193,14 +273,22 @@ export const BulkResultsPage = () => {
               <TableBody>
                 {filteredResults.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-16 text-muted-foreground">
+                    <TableCell
+                      colSpan={4}
+                      className="text-center py-16 text-muted-foreground"
+                    >
                       No results found
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredResults.map((result) => (
-                    <TableRow key={result.id} className="hover:bg-blue-50/20 transition-colors border-b last:border-0">
-                      <TableCell className="font-medium break-all min-w-[150px] py-4 px-6">{result.email}</TableCell>
+                    <TableRow
+                      key={result.id}
+                      className="hover:bg-blue-50/20 transition-colors border-b last:border-0"
+                    >
+                      <TableCell className="font-medium break-all min-w-[150px] py-4 px-6">
+                        {result.email}
+                      </TableCell>
                       <TableCell className="py-4 px-6">
                         <StatusBadge status={result.status} />
                       </TableCell>

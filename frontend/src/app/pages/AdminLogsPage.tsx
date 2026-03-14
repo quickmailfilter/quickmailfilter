@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { StatusBadge } from '../components/StatusBadge';
+import React, { useState } from "react";
+import { useApp } from "../context/AppContext";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { StatusBadge } from "../components/StatusBadge";
 import {
   Table,
   TableBody,
@@ -10,40 +15,46 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../components/ui/table';
+} from "../components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../components/ui/select';
-import { Search, Filter } from 'lucide-react';
+} from "../components/ui/select";
+import { Search, Filter } from "lucide-react";
 
 export const AdminLogsPage = () => {
   const { allVerifications, allUsers } = useApp();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [userFilter, setUserFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
 
-  const filteredLogs = allVerifications.filter(log => {
-    const matchesSearch = log.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || log.status === statusFilter;
-    const matchesUser = userFilter === 'all' || log.userId === userFilter;
+  const filteredLogs = allVerifications.filter((log) => {
+    const matchesSearch = log.email
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || log.status === statusFilter;
+    const matchesUser = userFilter === "all" || log.userId === userFilter;
     return matchesSearch && matchesStatus && matchesUser;
   });
 
   const getUserName = (userId: string) => {
-    const user = allUsers.find(u => u.id === userId);
-    return user ? user.name : 'Unknown User';
+    const user = allUsers.find((u) => u.id === userId);
+    return user ? user.name : "Unknown User";
   };
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-[#1E3A8A]">System Logs</h1>
-        <p className="text-gray-600 text-sm sm:text-base">Monitor all email verification activities</p>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-[#1E3A8A]">
+          System Logs
+        </h1>
+        <p className="text-gray-600 text-sm sm:text-base">
+          Monitor all email verification activities
+        </p>
       </div>
 
       {/* Stats */}
@@ -53,23 +64,34 @@ export const AdminLogsPage = () => {
             <div className="text-3xl font-bold text-gray-900 mb-1">
               {allVerifications.length}
             </div>
-            <div className="text-sm text-muted-foreground">Total Verifications</div>
+            <div className="text-sm text-muted-foreground">
+              Total Verifications
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-[#E5E7EB] border-l-4 border-l-green-500">
           <CardContent className="p-6 text-center">
             <div className="text-3xl font-bold text-green-600 mb-1">
-              {allVerifications.filter(v => v.status === 'valid').length}
+              {allVerifications.filter((v) => v.status === "valid").length}
             </div>
             <div className="text-sm text-muted-foreground">Valid</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-[#E5E7EB] border-l-4 border-l-blue-500">
+          <CardContent className="p-6 text-center">
+            <div className="text-3xl font-bold text-blue-600 mb-1">
+              {allVerifications.filter((v) => v.status === "catch-all").length}
+            </div>
+            <div className="text-sm text-muted-foreground">Catch-All</div>
           </CardContent>
         </Card>
 
         <Card className="border-[#E5E7EB] border-l-4 border-l-red-500">
           <CardContent className="p-6 text-center">
             <div className="text-3xl font-bold text-red-600 mb-1">
-              {allVerifications.filter(v => v.status === 'invalid').length}
+              {allVerifications.filter((v) => v.status === "invalid").length}
             </div>
             <div className="text-sm text-muted-foreground">Invalid</div>
           </CardContent>
@@ -78,7 +100,7 @@ export const AdminLogsPage = () => {
         <Card className="border-[#E5E7EB] border-l-4 border-l-amber-500">
           <CardContent className="p-6 text-center">
             <div className="text-3xl font-bold text-amber-600 mb-1">
-              {allVerifications.filter(v => v.status === 'risky').length}
+              {allVerifications.filter((v) => v.status === "risky").length}
             </div>
             <div className="text-sm text-muted-foreground">Risky</div>
           </CardContent>
@@ -106,19 +128,22 @@ export const AdminLogsPage = () => {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="valid">Valid</SelectItem>
+                  <SelectItem value="catch-all">Catch-All</SelectItem>
                   <SelectItem value="invalid">Invalid</SelectItem>
                   <SelectItem value="risky">Risky</SelectItem>
                   <SelectItem value="unknown">Unknown</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={userFilter} onValueChange={setUserFilter} >
+              <Select value={userFilter} onValueChange={setUserFilter}>
                 <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="User" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Users</SelectItem>
-                  {allUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                  {allUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -148,7 +173,10 @@ export const AdminLogsPage = () => {
               <TableBody>
                 {filteredLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                    <TableCell
+                      colSpan={6}
+                      className="text-center py-12 text-muted-foreground"
+                    >
                       No logs found
                     </TableCell>
                   </TableRow>
@@ -159,7 +187,9 @@ export const AdminLogsPage = () => {
                       <TableCell>
                         <StatusBadge status={log.status} />
                       </TableCell>
-                      <TableCell className="text-sm">{getUserName(log.userId)}</TableCell>
+                      <TableCell className="text-sm">
+                        {getUserName(log.userId)}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -177,7 +207,8 @@ export const AdminLogsPage = () => {
                         {log.reason}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                        {log.timestamp.toLocaleDateString()} {log.timestamp.toLocaleTimeString()}
+                        {log.timestamp.toLocaleDateString()}{" "}
+                        {log.timestamp.toLocaleTimeString()}
                       </TableCell>
                     </TableRow>
                   ))

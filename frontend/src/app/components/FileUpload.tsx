@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
-import { Upload, FileSpreadsheet, X } from 'lucide-react';
-import { Button } from './ui/button';
+import React, { useState, useCallback } from "react";
+import { Upload, FileSpreadsheet, X } from "lucide-react";
+import { Button } from "./ui/button";
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -8,14 +8,15 @@ interface FileUploadProps {
   maxSize?: number; // in MB
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ 
-  onFileSelect, 
-  accept = '.csv,.xlsx,.xls,.txt',
-  maxSize = 10 
+export const FileUpload: React.FC<FileUploadProps> = ({
+  onFileSelect,
+  accept = ".csv,.xlsx,.xls,.txt",
+  maxSize = 10,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -28,12 +29,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   }, []);
 
   const validateFile = (file: File): boolean => {
-    setError('');
+    setError("");
 
     // Check file type
-    const allowedTypes = accept.split(',').map(t => t.trim());
-    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-    
+    const allowedTypes = accept.split(",").map((t) => t.trim());
+    const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
+
     if (!allowedTypes.includes(fileExtension)) {
       setError(`Please upload a file with one of these formats: ${accept}`);
       return false;
@@ -49,16 +50,19 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     return true;
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
 
-    const file = e.dataTransfer.files[0];
-    if (file && validateFile(file)) {
-      setSelectedFile(file);
-      onFileSelect(file);
-    }
-  }, [onFileSelect, accept, maxSize]);
+      const file = e.dataTransfer.files[0];
+      if (file && validateFile(file)) {
+        setSelectedFile(file);
+        onFileSelect(file);
+      }
+    },
+    [onFileSelect, accept, maxSize],
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,7 +74,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
   const handleRemove = () => {
     setSelectedFile(null);
-    setError('');
+    setError("");
   };
 
   return (
@@ -79,10 +83,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
         className={`
-          border-2 border-dashed rounded-2xl p-6 sm:p-12 text-center transition-all
-          ${isDragging ? 'border-primary bg-accent' : 'border-border'}
-          ${selectedFile ? 'bg-accent border-primary/50' : 'border-slate-200 bg-white shadow-inner'}
+          border-2 border-dashed rounded-2xl p-6 sm:p-12 text-center transition-all cursor-pointer
+          ${isDragging ? "border-primary bg-accent" : "border-border"}
+          ${selectedFile ? "bg-accent border-primary/50" : "border-slate-200 bg-white shadow-inner hover:border-primary/50 hover:bg-slate-50"}
         `}
       >
         {!selectedFile ? (
@@ -92,16 +97,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             </div>
             <div>
               <p className="text-lg mb-2">
-                Drop your file here, or{' '}
-                <label className="text-primary cursor-pointer hover:underline">
-                  browse
-                  <input
-                    type="file"
-                    accept={accept}
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </label>
+                Drop your file here, or{" "}
+                <span className="text-primary font-semibold">browse</span>
               </p>
               <p className="text-sm text-muted-foreground">
                 Supports: CSV, Excel files (Max {maxSize}MB)
@@ -124,18 +121,26 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleRemove}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemove();
+              }}
               className="text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <X className="w-4 h-4" />
             </Button>
           </div>
         )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept}
+          onChange={handleFileChange}
+          className="hidden"
+        />
       </div>
 
-      {error && (
-        <p className="text-sm text-destructive text-center">{error}</p>
-      )}
+      {error && <p className="text-sm text-destructive text-center">{error}</p>}
     </div>
   );
 };

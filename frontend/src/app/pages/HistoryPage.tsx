@@ -1,73 +1,83 @@
-import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Button } from '../components/ui/button';
-import { StatusBadge } from '../components/StatusBadge';
-import { 
+import React, { useState } from "react";
+import { useApp } from "../context/AppContext";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import { StatusBadge } from "../components/StatusBadge";
+import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '../components/ui/table';
+} from "../components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../components/ui/select';
-import { Search, Calendar, Download, Mail } from 'lucide-react';
-import { toast } from 'sonner';
+} from "../components/ui/select";
+import { Search, Calendar, Download, Mail } from "lucide-react";
+import { toast } from "sonner";
 
 export const HistoryPage = () => {
   const { verificationHistory } = useApp();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
 
-  const filteredHistory = verificationHistory.filter(item => {
-    const matchesSearch = item.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    
+  const filteredHistory = verificationHistory.filter((item) => {
+    const matchesSearch = item.email
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || item.status === statusFilter;
+
     let matchesDate = true;
-    if (dateFilter === 'today') {
+    if (dateFilter === "today") {
       const today = new Date().toDateString();
       matchesDate = item.timestamp.toDateString() === today;
-    } else if (dateFilter === 'week') {
+    } else if (dateFilter === "week") {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
       matchesDate = item.timestamp >= weekAgo;
-    } else if (dateFilter === 'month') {
+    } else if (dateFilter === "month") {
       const monthAgo = new Date();
       monthAgo.setMonth(monthAgo.getMonth() - 1);
       matchesDate = item.timestamp >= monthAgo;
     }
-    
+
     return matchesSearch && matchesStatus && matchesDate;
   });
 
   const handleExport = () => {
     const csv = [
-      ['Email', 'Status', 'Confidence', 'Reason', 'Date'],
-      ...filteredHistory.map(item => [
+      ["Email", "Status", "Confidence", "Reason", "Date"],
+      ...filteredHistory.map((item) => [
         item.email,
         item.status,
         item.confidence,
         item.reason,
-        item.timestamp.toLocaleString()
-      ])
-    ].map(row => row.join(',')).join('\n');
+        item.timestamp.toLocaleString(),
+      ]),
+    ]
+      .map((row) => row.join(","))
+      .join("\n");
 
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'verification-history.csv';
+    a.download = "verification-history.csv";
     a.click();
-    toast.success('History exported successfully!');
+    toast.success("History exported successfully!");
   };
 
   return (
@@ -75,12 +85,18 @@ export const HistoryPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-[#1E3A8A]">Verification History</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-[#1E3A8A]">
+            Verification History
+          </h1>
           <p className="text-gray-600 text-sm sm:text-base">
             View and manage your past email verifications
           </p>
         </div>
-        <Button onClick={handleExport} variant="outline" className="w-full sm:w-auto">
+        <Button
+          onClick={handleExport}
+          variant="outline"
+          className="w-full sm:w-auto"
+        >
           <Download className="w-4 h-4 mr-2" />
           Export CSV
         </Button>
@@ -93,23 +109,37 @@ export const HistoryPage = () => {
             <div className="text-3xl font-bold text-gray-900 mb-1">
               {verificationHistory.length}
             </div>
-            <div className="text-sm text-muted-foreground">Total Verifications</div>
+            <div className="text-sm text-muted-foreground">
+              Total Verifications
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-[#E5E7EB] border-l-4 border-l-green-500">
           <CardContent className="p-6 text-center">
             <div className="text-3xl font-bold text-green-600 mb-1">
-              {verificationHistory.filter(v => v.status === 'valid').length}
+              {verificationHistory.filter((v) => v.status === "valid").length}
             </div>
             <div className="text-sm text-muted-foreground">Valid</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-[#E5E7EB] border-l-4 border-l-blue-500">
+          <CardContent className="p-6 text-center">
+            <div className="text-3xl font-bold text-blue-600 mb-1">
+              {
+                verificationHistory.filter((v) => v.status === "catch-all")
+                  .length
+              }
+            </div>
+            <div className="text-sm text-muted-foreground">Catch-All</div>
           </CardContent>
         </Card>
 
         <Card className="border-[#E5E7EB] border-l-4 border-l-red-500">
           <CardContent className="p-6 text-center">
             <div className="text-3xl font-bold text-red-600 mb-1">
-              {verificationHistory.filter(v => v.status === 'invalid').length}
+              {verificationHistory.filter((v) => v.status === "invalid").length}
             </div>
             <div className="text-sm text-muted-foreground">Invalid</div>
           </CardContent>
@@ -118,7 +148,7 @@ export const HistoryPage = () => {
         <Card className="border-[#E5E7EB] border-l-4 border-l-amber-500">
           <CardContent className="p-6 text-center">
             <div className="text-3xl font-bold text-amber-600 mb-1">
-              {verificationHistory.filter(v => v.status === 'risky').length}
+              {verificationHistory.filter((v) => v.status === "risky").length}
             </div>
             <div className="text-sm text-muted-foreground">Risky</div>
           </CardContent>
@@ -146,6 +176,7 @@ export const HistoryPage = () => {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="valid">Valid</SelectItem>
+                  <SelectItem value="catch-all">Catch-All</SelectItem>
                   <SelectItem value="invalid">Invalid</SelectItem>
                   <SelectItem value="risky">Risky</SelectItem>
                   <SelectItem value="unknown">Unknown</SelectItem>
@@ -197,7 +228,9 @@ export const HistoryPage = () => {
                 <TableBody>
                   {filteredHistory.map((item) => (
                     <TableRow key={item.id} className="hover:bg-accent/20">
-                      <TableCell className="font-medium">{item.email}</TableCell>
+                      <TableCell className="font-medium">
+                        {item.email}
+                      </TableCell>
                       <TableCell>
                         <StatusBadge status={item.status} />
                       </TableCell>
@@ -218,7 +251,8 @@ export const HistoryPage = () => {
                         {item.reason}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                        {item.timestamp.toLocaleDateString()} {item.timestamp.toLocaleTimeString()}
+                        {item.timestamp.toLocaleDateString()}{" "}
+                        {item.timestamp.toLocaleTimeString()}
                       </TableCell>
                     </TableRow>
                   ))}
