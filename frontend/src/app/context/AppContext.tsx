@@ -1028,20 +1028,42 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Upgrade current user's plan and record payment in Firestore
   const upgradePlan = async (
-    newPlan: "business" | "enterprise",
+    newPlan: string,
     paymentData?: { amount: number; transactionId?: string },
   ): Promise<boolean> => {
     if (!user) return false;
-    const newQuota = QUOTA_LIMITS[newPlan];
+
+    // Normalize plan name to lowercase
+    const normalizedPlan = newPlan.toString().toLowerCase().trim();
+
+    // Find the plan in pricingPlans to get its actual quota
+    const planConfig = pricingPlans.find(
+      (p) => p.name.toLowerCase().trim() === normalizedPlan,
+    );
+
+    if (!planConfig) {
+      console.error(
+        `Plan not found: ${newPlan}. Available plans:`,
+        pricingPlans.map((p) => p.name),
+      );
+      toast.error(`Plan not found: ${newPlan}`);
+      return false;
+    }
+
+    const newQuota = planConfig.quota;
+
     try {
       const userRef = doc(db, "users", user.id);
-      await updateDoc(userRef, { plan: newPlan, monthlyQuota: newQuota });
+      await updateDoc(userRef, {
+        plan: normalizedPlan,
+        monthlyQuota: newQuota,
+      });
 
       // Record payment document
       if (paymentData) {
         await addDoc(collection(db, "payments"), {
           userId: user.id,
-          plan: newPlan,
+          plan: normalizedPlan,
           amount: paymentData.amount,
           currency: "INR",
           status: "success",
@@ -1051,9 +1073,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setUser((prev) =>
-        prev ? { ...prev, plan: newPlan, monthlyQuota: newQuota } : prev,
+        prev ? { ...prev, plan: normalizedPlan, monthlyQuota: newQuota } : prev,
       );
-      toast.success(`Plan upgraded to ${newPlan}!`);
+      toast.success(`Plan upgraded to ${normalizedPlan}!`);
       return true;
     } catch (error: any) {
       toast.error(error.message || "Failed to upgrade plan");
@@ -1070,23 +1092,40 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const firestoreUpdates: Record<string, unknown> = { ...updates };
       if (updates.plan) {
-        firestoreUpdates.monthlyQuota = QUOTA_LIMITS[updates.plan];
+        // Find the plan in pricingPlans to get its quota
+        const normalizedPlan = updates.plan.toLowerCase().trim();
+        const planConfig = pricingPlans.find(
+          (p) => p.name.toLowerCase().trim() === normalizedPlan,
+        );
+
+        if (planConfig) {
+          firestoreUpdates.monthlyQuota = planConfig.quota;
+        } else {
+          console.warn(
+            `Plan not found in pricing plans: ${updates.plan}. Using existing quota.`,
+          );
+        }
       }
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, firestoreUpdates);
 
       setAllUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? {
-                ...u,
-                ...updates,
-                monthlyQuota: updates.plan
-                  ? QUOTA_LIMITS[updates.plan]
-                  : u.monthlyQuota,
+        prev.map((u) => {
+          if (u.id === userId) {
+            const newData = { ...u, ...updates };
+            if (updates.plan) {
+              const normalizedPlan = updates.plan.toLowerCase().trim();
+              const planConfig = pricingPlans.find(
+                (p) => p.name.toLowerCase().trim() === normalizedPlan,
+              );
+              if (planConfig) {
+                newData.monthlyQuota = planConfig.quota;
               }
-            : u,
-        ),
+            }
+            return newData;
+          }
+          return u;
+        }),
       );
       toast.success("User updated successfully!");
       return true;

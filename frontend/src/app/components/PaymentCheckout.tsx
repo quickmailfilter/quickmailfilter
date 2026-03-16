@@ -1,14 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { Button } from "./ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "./ui/dialog";
-import { AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Loader2, CheckCircle2, X } from "lucide-react";
 
 interface PaymentCheckoutProps {
   isOpen: boolean;
@@ -161,15 +154,32 @@ export const PaymentCheckout: React.FC<PaymentCheckoutProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        {step === "payment" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Complete Your Payment</DialogTitle>
-              <DialogDescription>Upgrade to {planName} plan</DialogDescription>
-            </DialogHeader>
+    <div
+      className={`fixed inset-0 z-50 ${isOpen ? "block" : "hidden"}`}
+      style={{
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        display: isOpen ? "flex" : "none",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-lg max-w-md w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-6 border-b">
+          <h2 className="text-lg font-semibold">Complete Your Payment</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
+        <div className="p-6">
+          {step === "payment" && (
             <div className="space-y-4">
               <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-600">Plan</p>
@@ -214,38 +224,42 @@ export const PaymentCheckout: React.FC<PaymentCheckoutProps> = ({
                 Secure payment powered by Razorpay
               </p>
             </div>
-          </>
-        )}
+          )}
 
-        {step === "processing" && (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <div className="relative w-16 h-16">
-              <div className="absolute inset-0 bg-blue-100 rounded-full animate-pulse"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          {step === "processing" && (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <div className="relative w-16 h-16">
+                <div className="absolute inset-0 bg-blue-100 rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-gray-900">
+                  Processing Payment
+                </p>
+                <p className="text-sm text-gray-600 mt-1">Please wait...</p>
               </div>
             </div>
-            <div className="text-center">
-              <p className="font-semibold text-gray-900">Processing Payment</p>
-              <p className="text-sm text-gray-600 mt-1">Please wait...</p>
-            </div>
-          </div>
-        )}
+          )}
 
-        {step === "success" && (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8 text-green-600" />
+          {step === "success" && (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 text-green-600" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-gray-900">
+                  Payment Successful!
+                </p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Your plan has been upgraded. Closing...
+                </p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="font-semibold text-gray-900">Payment Successful!</p>
-              <p className="text-sm text-gray-600 mt-1">
-                Your plan has been upgraded. Closing...
-              </p>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };

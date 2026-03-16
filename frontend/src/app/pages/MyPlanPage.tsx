@@ -45,7 +45,10 @@ export const MyPlanPage = () => {
   const handlePaymentSuccess = async (paymentData: any) => {
     if (!upgradeTarget) return;
 
-    await upgradePlan(upgradeTarget.name as any, {
+    // Convert plan name to lowercase to match QUOTA_LIMITS keys (business, enterprise, etc)
+    const normalizedPlanName = upgradeTarget.name.toLowerCase().trim();
+
+    await upgradePlan(normalizedPlanName as any, {
       amount: upgradeTarget.price,
       transactionId: paymentData.paymentId,
     });
