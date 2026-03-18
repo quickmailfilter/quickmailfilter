@@ -4,15 +4,15 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
 
-// Firebase configuration for quick-mailfilter project
+// Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyAg1MrCaPlWWU7bHmmTFHk16RJN1u2JpT8",
-  authDomain: "quick-mailfilter.firebaseapp.com",
-  projectId: "quick-mailfilter",
-  storageBucket: "quick-mailfilter.firebasestorage.app",
-  messagingSenderId: "196296202203",
-  appId: "1:196296202203:web:248348cd18c85a7e1e79fe",
-  measurementId: "G-ZXXMN7K27W",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase

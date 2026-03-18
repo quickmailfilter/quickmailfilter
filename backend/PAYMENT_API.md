@@ -189,9 +189,9 @@ curl -X GET http://localhost:3004/api/payment/status/order_NqN3vxLJB5b6R3
       "price": 0,
       "currency": "INR",
       "description": "Perfect for testing our service",
-      "quota": 1000,
+      "quota": 50,
       "features": [
-        "1,000 monthly verifications",
+        "50 monthly verifications",
         "Format validation",
         "Domain & MX checks",
         "Disposable detection"

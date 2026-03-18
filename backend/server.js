@@ -412,9 +412,9 @@ app.get("/api/payment/plans", (req, res) => {
       price: 0,
       currency: "INR",
       description: "Perfect for testing our service",
-      quota: 1000,
+      quota: 50,
       features: [
-        "1,000 monthly verifications",
+        "50 monthly verifications",
         "Format validation",
         "Domain & MX checks",
         "Disposable detection",

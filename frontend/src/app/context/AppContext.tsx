@@ -221,7 +221,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ? "https://quickmailfilter.com"
       : "http://localhost:3004";
   const QUOTA_LIMITS: Record<string, number> = {
-    free: 1000,
+    free: 50,
     business: 50000,
     enterprise: 1000000,
   };
