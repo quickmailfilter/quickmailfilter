@@ -1,0 +1,42 @@
+# Robots.txt for QuickMailFilter
+# Allow search engines to index all pages
+
+User-agent: *
+Allow: /
+Allow: /pricing
+Allow: /docs
+Allow: /blog
+Allow: /privacy-policy
+Allow: /terms
+Allow: /cookie-policy
+Allow: /gdpr
+
+# Disallow private pages
+Disallow: /admin/
+Disallow: /user/dashboard
+Disallow: /user/settings
+Disallow: /user/history
+
+# Disallow internal API routes
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://quickmailfilter.com/sitemap.xml
+
+# Crawl delay (be nice to servers)
+Crawl-delay: 1
+
+# Specific rules for GoogleBot - faster crawling
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0.5
+
+# Block bad bots
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
