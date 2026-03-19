@@ -155,11 +155,6 @@ export const MyPlanPage = () => {
                       : "border-gray-200"
                   }`}
                 >
-                  {plan.popular && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
-                      ⭐ MOST POPULAR
-                    </div>
-                  )}
                   <CardHeader className="pb-3 relative">
                     <CardTitle className="text-xl font-bold text-gray-900">
                       {plan.name}

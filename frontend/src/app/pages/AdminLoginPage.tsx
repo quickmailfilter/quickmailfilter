@@ -4,15 +4,8 @@ import { useApp } from "../context/AppContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
-import { ShieldCheck, Lock, Mail } from "lucide-react";
-import { toast } from "sonner";
+import { Card, CardContent } from "../components/ui/card";
+import { Lock, Mail, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "../components/ui/alert";
 
 export const AdminLoginPage = () => {
@@ -39,79 +32,109 @@ export const AdminLoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1E3A8A] via-[#2563EB] to-[#3B82F6] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md border-[#E5E7EB] shadow-2xl">
-        <CardHeader className="space-y-2">
-          <div className="w-16 h-16 bg-gradient-to-br from-[#2563EB] to-[#1E3A8A] rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <ShieldCheck className="w-9 h-9 text-white" />
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo Section */}
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <img
+              src="/icons/logo.jpeg"
+              alt="QuickMailFilter"
+              className="w-12 h-12 rounded-lg object-cover shadow-sm"
+            />
           </div>
-          <CardTitle className="text-2xl text-center">Admin Access</CardTitle>
-          <CardDescription className="text-center">
-            Secure login for administrators only
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert className="mb-6 bg-blue-50 border-blue-200">
-            <Lock className="h-4 w-4 text-[#2563EB]" />
-            <AlertDescription className="text-sm text-[#1E3A8A]">
-              Demo credentials: <strong>admin@verifymail.com</strong> /{" "}
-              <strong>admin123</strong>
-            </AlertDescription>
-          </Alert>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Panel</h1>
+          <p className="text-gray-600">Secure access for administrators</p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Admin Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@verifymail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="pl-10 border-[#E5E7EB]"
-                />
+        {/* Card */}
+        <Card className="border border-gray-200 shadow-lg">
+          <CardContent className="pt-8">
+            <Alert className="mb-6 bg-blue-50 border border-blue-200">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-sm text-blue-900">
+                This is a restricted admin area. All access attempts are logged
+                and monitored.
+              </AlertDescription>
+            </Alert>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label
+                  htmlFor="email"
+                  className="text-sm font-semibold text-gray-900"
+                >
+                  Admin Email
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="admin@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    required
+                    className="pl-10 border border-gray-300 bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] rounded-lg"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="pl-10 border-[#E5E7EB]"
-                />
+              <div className="space-y-2">
+                <Label
+                  htmlFor="password"
+                  className="text-sm font-semibold text-gray-900"
+                >
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                    className="pl-10 border border-gray-300 bg-white focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] rounded-lg"
+                  />
+                </div>
               </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-[#2563EB] hover:bg-[#1E40AF] h-11 font-semibold rounded-lg shadow-sm hover:shadow-md transition-all text-white"
+                disabled={loading}
+              >
+                {loading ? "Authenticating..." : "Sign In"}
+              </Button>
+            </form>
+
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <p className="text-sm text-gray-600 text-center mb-3">
+                Don't have an admin account?
+              </p>
+              <Link
+                to="/admin/signup"
+                className="block w-full px-4 py-2.5 border-2 border-[#2563EB] text-[#2563EB] rounded-lg hover:bg-blue-50 transition-colors font-medium text-center text-sm"
+              >
+                Create Admin Account
+              </Link>
             </div>
+          </CardContent>
+        </Card>
 
-            <Button
-              type="submit"
-              className="w-full bg-[#2563EB] hover:bg-[#1E3A8A]"
-              disabled={loading}
-            >
-              {loading ? "Authenticating..." : "Access Admin Panel"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Signup Link */}
-      <div className="mt-6 text-center">
-        <p className="text-white/80 mb-3">Don't have an admin account?</p>
-        <Link
-          to="/admin/signup"
-          className="inline-block px-6 py-2 border-2 border-white text-white rounded-lg hover:bg-white/10 transition-colors font-medium"
-        >
-          Create Admin Account
-        </Link>
+        {/* Footer Links */}
+        <div className="mt-6 text-center">
+          <Link
+            to="/"
+            className="inline-block text-gray-600 hover:text-[#2563EB] transition-colors font-medium text-sm"
+          >
+            ← Back to Home
+          </Link>
+        </div>
       </div>
     </div>
   );

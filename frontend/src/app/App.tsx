@@ -7,7 +7,7 @@ import {
 import { AppProvider, useApp } from "./context/AppContext";
 import { Toaster } from "./components/ui/sonner";
 import { useEffect, useState } from "react";
-import { Menu, ShieldCheck } from "lucide-react";
+import { Menu } from "lucide-react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 
@@ -138,10 +138,12 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             <Menu className="w-6 h-6" />
           </button>
           <div className="ml-4 flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-[#2563EB] to-[#1E3A8A] rounded-lg flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-[#1E3A8A]">VerifyMail</span>
+            <img
+              src="/icons/logo.jpeg"
+              alt="QuickMailFilter Logo"
+              className="w-8 h-8 rounded-lg object-cover"
+            />
+            <span className="font-bold text-[#1E3A8A]">QuickMailFilter</span>
           </div>
         </header>
 

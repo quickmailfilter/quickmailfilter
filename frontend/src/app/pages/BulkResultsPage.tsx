@@ -227,19 +227,21 @@ export const BulkResultsPage = () => {
         <CardContent className="p-4 sm:p-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
               <Input
                 placeholder="Search emails..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                autoComplete="off"
+                spellCheck="false"
+                className="pl-10 border-gray-300 focus-visible:border-[#2563EB]"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-48">
+              <SelectTrigger className="w-full md:w-48 border-gray-300 focus-visible:border-[#2563EB]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-50 bg-white border border-gray-200 shadow-lg">
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="valid">Valid</SelectItem>
                 <SelectItem value="catch-all">Catch-All</SelectItem>

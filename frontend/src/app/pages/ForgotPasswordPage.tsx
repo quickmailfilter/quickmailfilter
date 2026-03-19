@@ -83,20 +83,11 @@ export const ForgotPasswordPage = () => {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                   required
-                  className="border-[#E5E7EB]"
+                  className="border-[#E5E7EB] border-gray-300 focus-visible:border-[#2563EB]"
                 />
               </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-[#2563EB] hover:bg-[#1E3A8A]"
-                disabled={loading}
-                data-aos="fade-up"
-                data-aos-delay="600"
-              >
-                {loading ? "Sending..." : "Send Reset Link"}
-              </Button>
 
               <div data-aos="fade-up" data-aos-delay="700">
                 <Link to="/login">

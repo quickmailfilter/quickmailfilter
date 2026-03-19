@@ -140,14 +140,15 @@ export const SignupPage = () => {
               >
                 <Label htmlFor="name">Full Name</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
                   <Input
                     id="name"
                     type="text"
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="pl-10"
+                    autoComplete="name"
+                    className="pl-10 border-gray-300 focus-visible:border-[#2563EB]"
                     required
                   />
                 </div>
@@ -161,14 +162,15 @@ export const SignupPage = () => {
               >
                 <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
+                    autoComplete="email"
+                    className="pl-10 border-gray-300 focus-visible:border-[#2563EB]"
                     required
                   />
                 </div>
@@ -182,14 +184,15 @@ export const SignupPage = () => {
               >
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
                   <Input
                     id="password"
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
+                    autoComplete="new-password"
+                    className="pl-10 border-gray-300 focus-visible:border-[#2563EB]"
                     required
                   />
                 </div>

@@ -117,6 +117,8 @@ export const UserSettingsPage = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="John Doe"
+                    autoComplete="name"
+                    className="border-gray-300 focus-visible:border-[#2563EB]"
                   />
                 </div>
 
@@ -128,6 +130,8 @@ export const UserSettingsPage = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="john@example.com"
+                    autoComplete="email"
+                    className="border-gray-300 focus-visible:border-[#2563EB]"
                   />
                 </div>
 
@@ -174,6 +178,8 @@ export const UserSettingsPage = () => {
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="••••••••"
+                    autoComplete="current-password"
+                    className="border-gray-300 focus-visible:border-[#2563EB]"
                   />
                 </div>
 
@@ -185,6 +191,8 @@ export const UserSettingsPage = () => {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
+                    autoComplete="new-password"
+                    className="border-gray-300 focus-visible:border-[#2563EB]"
                   />
                 </div>
 
@@ -196,6 +204,8 @@ export const UserSettingsPage = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
+                    autoComplete="new-password"
+                    className="border-gray-300 focus-visible:border-[#2563EB]"
                   />
                 </div>
 

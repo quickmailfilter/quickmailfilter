@@ -8,7 +8,6 @@ import {
   Users,
   FileText,
   BarChart3,
-  ShieldCheck,
   X,
   LogOut,
   Zap,
@@ -48,11 +47,15 @@ export const DashboardSidebar = ({ onClose }: { onClose?: () => void }) => {
           className="flex items-center gap-2"
           onClick={onClose}
         >
-          <div className="w-10 h-10 bg-gradient-to-br from-[#2563EB] to-[#1E3A8A] rounded-xl flex items-center justify-center">
-            <ShieldCheck className="w-6 h-6 text-white" />
-          </div>
+          <img
+            src="/icons/logo.jpeg"
+            alt="QuickMailFilter Logo"
+            className="w-10 h-10 rounded-lg object-cover"
+          />
           <div>
-            <div className="text-lg font-bold text-[#1E3A8A]">VerifyMail</div>
+            <div className="text-lg font-bold text-[#1E3A8A]">
+              QuickMailFilter
+            </div>
             {isAdmin && (
               <div className="text-xs text-gray-500 font-medium">
                 Admin Panel

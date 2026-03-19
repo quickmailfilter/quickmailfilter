@@ -26,51 +26,30 @@ export const PricingPage = () => {
 
   // Carousel state for mobile
   const [subscriptionCarouselIndex, setSubscriptionCarouselIndex] = useState(0);
-  const [onetimeCarouselIndex, setOnetimeCarouselIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
   // Swipe handler
-  const handleSwipe = (isSubscription: boolean) => {
+  const handleSwipe = () => {
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > 50;
     const isRightSwipe = distance < -50;
 
     if (isLeftSwipe) {
-      if (isSubscription) {
-        setSubscriptionCarouselIndex((prev) => {
-          const subscriptionPlans = displayPlans.filter(
-            (p) => p.planType === "subscription",
-          );
-          return (prev + 1) % subscriptionPlans.length;
-        });
-      } else {
-        setOnetimeCarouselIndex((prev) => {
-          const onetimePlans = displayPlans.filter(
-            (p) => p.planType === "onetime",
-          );
-          return (prev + 1) % onetimePlans.length;
-        });
-      }
+      setSubscriptionCarouselIndex((prev) => {
+        const subscriptionPlans = displayPlans.filter(
+          (p) => p.planType === "subscription",
+        );
+        return (prev + 1) % subscriptionPlans.length;
+      });
     }
     if (isRightSwipe) {
-      if (isSubscription) {
-        setSubscriptionCarouselIndex((prev) => {
-          const subscriptionPlans = displayPlans.filter(
-            (p) => p.planType === "subscription",
-          );
-          return (
-            (prev - 1 + subscriptionPlans.length) % subscriptionPlans.length
-          );
-        });
-      } else {
-        setOnetimeCarouselIndex((prev) => {
-          const onetimePlans = displayPlans.filter(
-            (p) => p.planType === "onetime",
-          );
-          return (prev - 1 + onetimePlans.length) % onetimePlans.length;
-        });
-      }
+      setSubscriptionCarouselIndex((prev) => {
+        const subscriptionPlans = displayPlans.filter(
+          (p) => p.planType === "subscription",
+        );
+        return (prev - 1 + subscriptionPlans.length) % subscriptionPlans.length;
+      });
     }
   };
 
@@ -209,11 +188,6 @@ export const PricingPage = () => {
                     data-aos="fade-up"
                     data-aos-delay={index * 100}
                   >
-                    {plan.popular && (
-                      <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
-                        ⭐ MOST POPULAR
-                      </div>
-                    )}
                     <Card
                       className={`h-full border-2 transition-colors duration-300 flex flex-col ${
                         plan.popular
@@ -306,7 +280,7 @@ export const PricingPage = () => {
                   }
                   onTouchEnd={(e) => {
                     setTouchEnd(e.changedTouches[0].clientX);
-                    handleSwipe(true);
+                    handleSwipe();
                   }}
                 >
                   {(() => {
@@ -471,366 +445,6 @@ export const PricingPage = () => {
                 })()}
               </div>
             ) : null}
-          </div>
-        </div>
-
-        {/* On-Demand Top-ups Section */}
-        <div className="mb-20">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              🚀 Top-ups - Pay As You Go
-            </h2>
-            <p className="text-gray-600">
-              No strings attached. Purchase credits only when you need them.
-              These credits stay in your account until used.
-            </p>
-          </div>
-
-          {/* Desktop Grid */}
-          <div className="hidden md:grid grid-cols-5 gap-6">
-            {displayPlans
-              .filter((p) => p.planType === "onetime")
-              .map((plan, index) => {
-                const isCurrentPlan =
-                  isAuthenticated &&
-                  user?.plan?.toLowerCase() === plan.name.toLowerCase();
-                return (
-                  <div
-                    key={plan.id}
-                    className={`relative group h-full transform transition-all duration-300 hover:scale-[1.02] ${
-                      plan.popular ? "scale-105 z-10 -mt-4" : ""
-                    }`}
-                    data-aos="fade-up"
-                    data-aos-delay={index * 100}
-                  >
-                    {plan.popular && (
-                      <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
-                        ⭐ BEST VALUE
-                      </div>
-                    )}
-                    <Card
-                      className={`h-full border-2 transition-colors duration-300 flex flex-col ${
-                        plan.popular
-                          ? "border-orange-500 shadow-xl bg-orange-50"
-                          : "border-gray-200 hover:border-orange-300"
-                      }`}
-                    >
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg font-bold text-gray-900">
-                          {plan.name}
-                        </CardTitle>
-                        <p className="text-xs text-gray-500 mt-1 h-8 line-clamp-2">
-                          {plan.description}
-                        </p>
-                      </CardHeader>
-                      <CardContent className="space-y-4 flex-1 flex flex-col">
-                        {/* Total Credits */}
-                        <div className="bg-white p-3 rounded-lg border border-gray-100">
-                          <p className="text-xs text-gray-400 uppercase font-bold mb-1">
-                            Total Credits
-                          </p>
-                          <p className="text-2xl font-bold text-orange-600">
-                            {plan.quota.toLocaleString()}
-                          </p>
-                        </div>
-
-                        {/* Price */}
-                        <div className="bg-white p-3 rounded-lg border border-gray-100">
-                          <p className="text-xs text-gray-400 uppercase font-bold mb-1">
-                            One-Time Price
-                          </p>
-                          <p className="text-2xl font-bold text-gray-900">
-                            ₹{plan.price.toLocaleString()}
-                          </p>
-                        </div>
-
-                        {/* Cost Per Credit */}
-                        <div className="bg-white p-3 rounded-lg border border-gray-100">
-                          <p className="text-xs text-gray-400 uppercase font-bold mb-1">
-                            Cost Per Credit
-                          </p>
-                          <p className="text-2xl font-bold text-blue-600">
-                            ₹{(plan.price / plan.quota).toFixed(2)}
-                          </p>
-                        </div>
-
-                        {/* Features */}
-                        <ul className="space-y-2 text-sm">
-                          {plan.features.map((feature, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                              <span className="text-gray-600 text-xs">
-                                {feature}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-
-                        {/* CTA Button */}
-                        <Button
-                          className={`w-full py-3 text-sm font-bold mt-auto transition-all duration-300 ${
-                            isCurrentPlan
-                              ? "bg-gray-100 text-gray-500 cursor-default"
-                              : plan.popular
-                                ? "bg-orange-600 hover:bg-orange-700 text-white"
-                                : "bg-blue-600 hover:bg-blue-700 text-white"
-                          }`}
-                          onClick={() => !isCurrentPlan && handlePlanCTA(plan)}
-                        >
-                          {isCurrentPlan ? "✓ Current Plan" : `Purchase Now`}
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </div>
-                );
-              })}
-          </div>
-
-          {/* Mobile Carousel */}
-          <div className="md:hidden">
-            {displayPlans.filter((p) => p.planType === "onetime").length > 0 ? (
-              <div className="space-y-6">
-                {/* Carousel Card */}
-                <div
-                  className="relative"
-                  onTouchStart={(e) =>
-                    setTouchStart(e.targetTouches[0].clientX)
-                  }
-                  onTouchEnd={(e) => {
-                    setTouchEnd(e.changedTouches[0].clientX);
-                    handleSwipe(false);
-                  }}
-                >
-                  {(() => {
-                    const onetimePlans = displayPlans.filter(
-                      (p) => p.planType === "onetime",
-                    );
-                    const plan = onetimePlans[onetimeCarouselIndex];
-                    const isCurrentPlan =
-                      isAuthenticated &&
-                      user?.plan?.toLowerCase() === plan.name.toLowerCase();
-
-                    return (
-                      <Card
-                        className={`border-2 transition-all duration-300 flex flex-col cursor-grab active:cursor-grabbing ${
-                          plan.popular
-                            ? "border-orange-500 shadow-xl bg-orange-50"
-                            : "border-gray-200"
-                        }`}
-                      >
-                        {plan.popular && (
-                          <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
-                            ⭐ BEST VALUE
-                          </div>
-                        )}
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-2xl font-bold text-gray-900">
-                            {plan.name}
-                          </CardTitle>
-                          <p className="text-sm text-gray-500 mt-2">
-                            {plan.description}
-                          </p>
-                        </CardHeader>
-                        <CardContent className="space-y-4 flex-1 flex flex-col">
-                          {/* Total Credits */}
-                          <div className="bg-white p-3 rounded-lg border border-gray-100">
-                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">
-                              Total Credits
-                            </p>
-                            <p className="text-2xl font-bold text-orange-600">
-                              {plan.quota.toLocaleString()}
-                            </p>
-                          </div>
-
-                          {/* Price */}
-                          <div className="bg-white p-3 rounded-lg border border-gray-100">
-                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">
-                              One-Time Price
-                            </p>
-                            <p className="text-2xl font-bold text-gray-900">
-                              ₹{plan.price.toLocaleString()}
-                            </p>
-                          </div>
-
-                          {/* Cost Per Credit */}
-                          <div className="bg-white p-3 rounded-lg border border-gray-100">
-                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">
-                              Cost Per Credit
-                            </p>
-                            <p className="text-2xl font-bold text-blue-600">
-                              ₹{(plan.price / plan.quota).toFixed(2)}
-                            </p>
-                          </div>
-
-                          {/* Features */}
-                          <ul className="space-y-2 text-sm">
-                            {plan.features.map((feature, idx) => (
-                              <li key={idx} className="flex items-start gap-2">
-                                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                                <span className="text-gray-600 text-xs">
-                                  {feature}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-
-                          {/* CTA Button */}
-                          <Button
-                            className={`w-full py-3 text-sm font-bold mt-auto transition-all duration-300 ${
-                              isCurrentPlan
-                                ? "bg-gray-100 text-gray-500 cursor-default"
-                                : plan.popular
-                                  ? "bg-orange-600 hover:bg-orange-700 text-white"
-                                  : "bg-blue-600 hover:bg-blue-700 text-white"
-                            }`}
-                            onClick={() =>
-                              !isCurrentPlan && handlePlanCTA(plan)
-                            }
-                          >
-                            {isCurrentPlan ? "✓ Current Plan" : `Purchase Now`}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })()}
-                </div>
-
-                {/* Navigation Controls */}
-                {(() => {
-                  const onetimePlans = displayPlans.filter(
-                    (p) => p.planType === "onetime",
-                  );
-                  return (
-                    <>
-                      {/* Arrow Buttons - Modern Style */}
-                      <div className="flex gap-6 justify-center items-center">
-                        <button
-                          onClick={() =>
-                            setOnetimeCarouselIndex(
-                              (prev) =>
-                                (prev - 1 + onetimePlans.length) %
-                                onetimePlans.length,
-                            )
-                          }
-                          className="p-2 rounded-full bg-orange-100 hover:bg-orange-200 text-orange-600 transition-all duration-300 hover:scale-110"
-                          aria-label="Previous plan"
-                        >
-                          <ChevronLeft className="w-6 h-6" />
-                        </button>
-
-                        {/* Dots Indicator */}
-                        <div className="flex gap-2">
-                          {onetimePlans.map((_, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => setOnetimeCarouselIndex(idx)}
-                              className={`w-2 h-2 rounded-full transition-all ${
-                                idx === onetimeCarouselIndex
-                                  ? "bg-orange-600 w-6"
-                                  : "bg-gray-300"
-                              }`}
-                              aria-label={`Go to plan ${idx + 1}`}
-                            />
-                          ))}
-                        </div>
-
-                        <button
-                          onClick={() =>
-                            setOnetimeCarouselIndex(
-                              (prev) => (prev + 1) % onetimePlans.length,
-                            )
-                          }
-                          className="p-2 rounded-full bg-orange-100 hover:bg-orange-200 text-orange-600 transition-all duration-300 hover:scale-110"
-                          aria-label="Next plan"
-                        >
-                          <ChevronRight className="w-6 h-6" />
-                        </button>
-                      </div>
-
-                      {/* Counter & Swipe Hint */}
-                      <div className="text-center space-y-2">
-                        <p className="text-sm text-gray-500">
-                          {onetimeCarouselIndex + 1} of {onetimePlans.length}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          💡 Swipe or use arrows to navigate
-                        </p>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Comparison Table */}
-        <div className="mb-20 bg-white rounded-lg border border-gray-200 p-4 md:p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
-            Plan Comparison
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs md:text-sm">
-              <thead>
-                <tr className="border-b-2 border-gray-300">
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4 font-bold text-gray-900">
-                    Feature
-                  </th>
-                  <th className="text-center py-3 md:py-4 px-2 md:px-4 font-bold text-blue-600">
-                    Subscription
-                  </th>
-                  <th className="text-center py-3 md:py-4 px-2 md:px-4 font-bold text-orange-600">
-                    One-Time
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  {
-                    feature: "Monthly Commitment",
-                    subscription: "✓ Required",
-                    onetime: "✗ None",
-                  },
-                  {
-                    feature: "Best For",
-                    subscription: "Consistent Users",
-                    onetime: "Occasional Users",
-                  },
-                  {
-                    feature: "Credits Refresh",
-                    subscription: "Daily @ Midnight",
-                    onetime: "One-Time",
-                  },
-                  {
-                    feature: "Unused Credits",
-                    subscription: "Lost after month",
-                    onetime: "Never Expire",
-                  },
-                  {
-                    feature: "Cost Per Credit",
-                    subscription: "Lowest Rate",
-                    onetime: "Higher Rate",
-                  },
-                  {
-                    feature: "Billing",
-                    subscription: "Monthly Auto-Renew",
-                    onetime: "One Payment",
-                  },
-                ].map((row, idx) => (
-                  <tr key={idx} className="border-b border-gray-200">
-                    <td className="py-3 md:py-4 px-2 md:px-4 font-semibold text-gray-900">
-                      {row.feature}
-                    </td>
-                    <td className="text-center py-3 md:py-4 px-2 md:px-4 text-gray-600">
-                      {row.subscription}
-                    </td>
-                    <td className="text-center py-3 md:py-4 px-2 md:px-4 text-gray-600">
-                      {row.onetime}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
 
