@@ -21,6 +21,10 @@ import { ScrollToTop } from "./components/ScrollToTop";
 import { LandingPage } from "./pages/LandingPage";
 import { PricingPage } from "./pages/PricingPage";
 import { DocsPage } from "./pages/DocsPage";
+import { ContactPage } from "./pages/ContactPage";
+import { AboutPage } from "./pages/AboutPage";
+import { BlogPage } from "./pages/BlogPage";
+import { CareersPage } from "./pages/CareersPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
@@ -48,6 +52,7 @@ import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AdminLogsPage } from "./pages/AdminLogsPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminFileManagerPage } from "./pages/AdminFileManagerPage";
+import { AdminContactSubmissionsPage } from "./pages/AdminContactSubmissionsPage";
 
 // Loading component
 const LoadingScreen = () => (
@@ -196,6 +201,14 @@ function AppContent() {
           element={
             <PublicLayout>
               <DocsPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/contact"
+          element={
+            <PublicLayout>
+              <ContactPage />
             </PublicLayout>
           }
         />
@@ -403,6 +416,42 @@ function AppContent() {
                 <AdminFileManagerPage />
               </DashboardLayout>
             </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/contact-submissions"
+          element={
+            <AdminRoute>
+              <DashboardLayout>
+                <AdminContactSubmissionsPage />
+              </DashboardLayout>
+            </AdminRoute>
+          }
+        />
+
+        {/* Company Pages */}
+        <Route
+          path="/about"
+          element={
+            <PublicLayout>
+              <AboutPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/blog"
+          element={
+            <PublicLayout>
+              <BlogPage />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/careers"
+          element={
+            <PublicLayout>
+              <CareersPage />
+            </PublicLayout>
           }
         />
 

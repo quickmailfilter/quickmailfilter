@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import { Mail, Twitter, Linkedin, Github } from "lucide-react";
 
@@ -25,19 +24,25 @@ export const Footer = () => {
             </p>
             <div className="flex gap-3">
               <a
-                href="#"
+                href="https://twitter.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-8 h-8 rounded-lg bg-[#F8FAFC] hover:bg-[#2563EB] text-gray-600 hover:text-white flex items-center justify-center transition-colors hover:scale-110 duration-200"
               >
                 <Twitter className="w-4 h-4" />
               </a>
               <a
-                href="#"
+                href="https://linkedin.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-8 h-8 rounded-lg bg-[#F8FAFC] hover:bg-[#2563EB] text-gray-600 hover:text-white flex items-center justify-center transition-colors hover:scale-110 duration-200"
               >
                 <Linkedin className="w-4 h-4" />
               </a>
               <a
-                href="#"
+                href="https://github.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-8 h-8 rounded-lg bg-[#F8FAFC] hover:bg-[#2563EB] text-gray-600 hover:text-white flex items-center justify-center transition-colors hover:scale-110 duration-200"
               >
                 <Github className="w-4 h-4" />
@@ -77,13 +82,13 @@ export const Footer = () => {
                 </Link>
               </li>
               <li>
-                <a
-                  href="#"
+                <Link
+                  to="/docs"
                   className="text-gray-600 hover:text-[#2563EB] transition-colors flex items-center gap-1 group"
                 >
                   <span className="w-0 h-0.5 bg-[#2563EB] transition-all group-hover:w-2" />
                   API Reference
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -93,40 +98,40 @@ export const Footer = () => {
             <h3 className="font-semibold text-gray-900 mb-4">Company</h3>
             <ul className="space-y-3 text-sm">
               <li>
-                <a
-                  href="#"
+                <Link
+                  to="/about"
                   className="text-gray-600 hover:text-[#2563EB] transition-colors flex items-center gap-1 group"
                 >
                   <span className="w-0 h-0.5 bg-[#2563EB] transition-all group-hover:w-2" />
                   About Us
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#"
+                <Link
+                  to="/blog"
                   className="text-gray-600 hover:text-[#2563EB] transition-colors flex items-center gap-1 group"
                 >
                   <span className="w-0 h-0.5 bg-[#2563EB] transition-all group-hover:w-2" />
                   Blog
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#"
+                <Link
+                  to="/careers"
                   className="text-gray-600 hover:text-[#2563EB] transition-colors flex items-center gap-1 group"
                 >
                   <span className="w-0 h-0.5 bg-[#2563EB] transition-all group-hover:w-2" />
                   Careers
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#"
+                <Link
+                  to="/contact"
                   className="text-gray-600 hover:text-[#2563EB] transition-colors flex items-center gap-1 group"
                 >
                   <span className="w-0 h-0.5 bg-[#2563EB] transition-all group-hover:w-2" />
                   Contact
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

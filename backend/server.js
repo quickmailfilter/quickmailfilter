@@ -14,6 +14,36 @@ const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
 const crypto = require("crypto");
+const admin = require("firebase-admin");
+
+// Initialize Firebase Admin if credentials are provided
+let firebaseInitialized = false;
+if (
+  process.env.FIREBASE_PRIVATE_KEY &&
+  process.env.FIREBASE_PROJECT_ID &&
+  process.env.FIREBASE_CLIENT_EMAIL
+) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/gm, "\n"),
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      }),
+    });
+    firebaseInitialized = true;
+    console.log("✅ Firebase Admin SDK initialized");
+  } catch (error) {
+    console.warn("⚠️  Firebase initialization error:", error.message);
+  }
+} else {
+  console.warn(
+    "⚠️  Firebase credentials not provided. Contact submissions will be stored in memory only.",
+  );
+}
+
+// In-memory storage for contact submissions (in production, use Firebase)
+const contactSubmissions = [];
 
 // Import backend validators
 let validate;
@@ -524,6 +554,330 @@ app.listen(PORT, () => {
 
 Documentation: See README.md for full API documentation
   `);
+});
+
+// ========== CONTACT SUBMISSIONS ROUTES ==========
+
+/**
+ * Submit Contact Form
+ * POST /api/contact/submit
+ * Body: { name: string, email: string, subject: string, message: string, phone?: string }
+ */
+app.post("/api/contact/submit", async (req, res) => {
+  const { name, email, subject, message, phone } = req.body;
+
+  // Validate required fields
+  if (!name || !email || !subject || !message) {
+    return res.status(400).json({
+      error: "Missing required fields",
+      required: ["name", "email", "subject", "message"],
+    });
+  }
+
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      error: "Invalid email format",
+    });
+  }
+
+  const submission = {
+    id: `contact-${Date.now()}`,
+    name: name.trim(),
+    email: email.trim().toLowerCase(),
+    phone: phone?.trim() || "",
+    subject: subject.trim(),
+    message: message.trim(),
+    createdAt: new Date().toISOString(),
+    read: false,
+    status: "new",
+  };
+
+  try {
+    // Try to save to Firebase if available
+    if (firebaseInitialized) {
+      try {
+        const db = admin.firestore();
+        await db
+          .collection("contactSubmissions")
+          .doc(submission.id)
+          .set(submission);
+        console.log(
+          `✅ Contact submission saved to Firebase: ${submission.id}`,
+        );
+      } catch (firebaseError) {
+        console.error("Firebase storage error:", firebaseError.message);
+        // Fall back to in-memory storage
+        contactSubmissions.push(submission);
+      }
+    } else {
+      // Store in memory
+      contactSubmissions.push(submission);
+      console.log(`📝 Contact submission stored in memory: ${submission.id}`);
+      console.log(`   Total submissions: ${contactSubmissions.length}`);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Contact form submitted successfully",
+      submissionId: submission.id,
+    });
+  } catch (error) {
+    console.error("❌ Contact submission error:", error.message);
+    res.status(500).json({
+      error: "Failed to submit contact form",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Get All Contact Submissions (Admin Only)
+ * GET /api/contact/submissions
+ * Query: ?limit=50&offset=0&sort=createdAt&order=desc
+ */
+app.get("/api/contact/submissions", async (req, res) => {
+  const {
+    limit = 50,
+    offset = 0,
+    sort = "createdAt",
+    order = "desc",
+  } = req.query;
+
+  try {
+    let submissions = [];
+
+    // Try to fetch from Firebase if available
+    if (firebaseInitialized) {
+      try {
+        const db = admin.firestore();
+        let query = db.collection("contactSubmissions");
+
+        // Apply sorting
+        const orderDirection = order === "desc" ? "desc" : "asc";
+        query = query.orderBy(sort, orderDirection);
+
+        // Apply pagination
+        const snapshot = await query
+          .limit(parseInt(limit))
+          .offset(parseInt(offset))
+          .get();
+
+        submissions = snapshot.docs.map((doc) => ({
+          ...doc.data(),
+        }));
+
+        // Get total count
+        const countSnapshot = await db.collection("contactSubmissions").get();
+        const total = countSnapshot.size;
+
+        console.log(
+          `✅ Retrieved ${submissions.length} contact submissions from Firebase`,
+        );
+
+        return res.json({
+          success: true,
+          submissions,
+          total,
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+        });
+      } catch (firebaseError) {
+        console.error("Firebase retrieval error:", firebaseError.message);
+        // Fall back to in-memory storage
+      }
+    }
+
+    // Return in-memory submissions
+    submissions = contactSubmissions
+      .slice()
+      .sort((a, b) => {
+        const multiplier = order === "asc" ? 1 : -1;
+        if (sort === "createdAt") {
+          return (
+            multiplier *
+            (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          );
+        }
+        return 0;
+      })
+      .slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+
+    res.json({
+      success: true,
+      submissions,
+      total: contactSubmissions.length,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      note: "Using in-memory storage. Contact submissions will be lost on server restart. Configure Firebase for persistent storage.",
+    });
+  } catch (error) {
+    console.error("❌ Submission retrieval error:", error.message);
+    res.status(500).json({
+      error: "Failed to retrieve contact submissions",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Get Single Contact Submission (Admin Only)
+ * GET /api/contact/submissions/:id
+ */
+app.get("/api/contact/submissions/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Try Firebase first
+    if (firebaseInitialized) {
+      try {
+        const db = admin.firestore();
+        const doc = await db.collection("contactSubmissions").doc(id).get();
+
+        if (!doc.exists) {
+          return res.status(404).json({
+            error: "Submission not found",
+            id,
+          });
+        }
+
+        return res.json({
+          success: true,
+          submission: doc.data(),
+        });
+      } catch (firebaseError) {
+        console.error("Firebase retrieval error:", firebaseError.message);
+        // Fall back to in-memory storage
+      }
+    }
+
+    // Search in-memory
+    const submission = contactSubmissions.find((s) => s.id === id);
+
+    if (!submission) {
+      return res.status(404).json({
+        error: "Submission not found",
+        id,
+      });
+    }
+
+    res.json({
+      success: true,
+      submission,
+    });
+  } catch (error) {
+    console.error("❌ Submission retrieval error:", error.message);
+    res.status(500).json({
+      error: "Failed to retrieve submission",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Mark Contact Submission as Read (Admin Only)
+ * PATCH /api/contact/submissions/:id/read
+ */
+app.patch("/api/contact/submissions/:id/read", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Try Firebase first
+    if (firebaseInitialized) {
+      try {
+        const db = admin.firestore();
+        await db.collection("contactSubmissions").doc(id).update({
+          read: true,
+          readAt: new Date().toISOString(),
+        });
+
+        const doc = await db.collection("contactSubmissions").doc(id).get();
+        return res.json({
+          success: true,
+          submission: doc.data(),
+        });
+      } catch (firebaseError) {
+        console.error("Firebase update error:", firebaseError.message);
+        // Fall back to in-memory storage
+      }
+    }
+
+    // Update in-memory
+    const submission = contactSubmissions.find((s) => s.id === id);
+
+    if (!submission) {
+      return res.status(404).json({
+        error: "Submission not found",
+        id,
+      });
+    }
+
+    submission.read = true;
+    submission.readAt = new Date().toISOString();
+
+    res.json({
+      success: true,
+      submission,
+    });
+  } catch (error) {
+    console.error("❌ Submission update error:", error.message);
+    res.status(500).json({
+      error: "Failed to update submission",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Delete Contact Submission (Admin Only)
+ * DELETE /api/contact/submissions/:id
+ */
+app.delete("/api/contact/submissions/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Try Firebase first
+    if (firebaseInitialized) {
+      try {
+        const db = admin.firestore();
+        await db.collection("contactSubmissions").doc(id).delete();
+
+        return res.json({
+          success: true,
+          message: "Submission deleted successfully",
+          id,
+        });
+      } catch (firebaseError) {
+        console.error("Firebase deletion error:", firebaseError.message);
+        // Fall back to in-memory storage
+      }
+    }
+
+    // Delete from in-memory
+    const index = contactSubmissions.findIndex((s) => s.id === id);
+
+    if (index === -1) {
+      return res.status(404).json({
+        error: "Submission not found",
+        id,
+      });
+    }
+
+    contactSubmissions.splice(index, 1);
+
+    res.json({
+      success: true,
+      message: "Submission deleted successfully",
+      id,
+    });
+  } catch (error) {
+    console.error("❌ Submission deletion error:", error.message);
+    res.status(500).json({
+      error: "Failed to delete submission",
+      message: error.message,
+    });
+  }
 });
 
 // Graceful shutdown

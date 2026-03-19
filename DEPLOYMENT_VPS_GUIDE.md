@@ -4,7 +4,7 @@
 **VPS IP:** 187.77.191.145  
 **Server:** Ubuntu 24.04.4 LTS  
 **Backend Port:** 3004  
-**Node Version:** v20 LTS  
+**Node Version:** v20 LTS
 
 ---
 
@@ -54,6 +54,7 @@ pm2 logs quickmailfilter-api --lines 20
 ```
 
 **Expected Output:**
+
 - ✅ Backend online in pm2 list
 - ✅ No errors in logs
 - ✅ Frontend files updated: `ls -la frontend/dist/ | head -5`
@@ -63,6 +64,7 @@ pm2 logs quickmailfilter-api --lines 20
 ## 🏗️ Current Infrastructure
 
 ### Directory Structure
+
 ```
 /var/www/quickmailfilter/
 ├── backend/              # Node.js API server
@@ -82,6 +84,7 @@ pm2 logs quickmailfilter-api --lines 20
 ```
 
 ### Running Services
+
 ```
 Service              Port    Status      Manager
 ─────────────────────────────────────────────────
@@ -91,6 +94,7 @@ MongoDB              27017   [External]  [External]
 ```
 
 ### Domain Configuration
+
 ```
 Domain:              quickmailfilter.com
 DNS A Record:        187.77.191.145
@@ -106,6 +110,7 @@ Paths:
 ## 🔧 Build & Deployment Process
 
 ### Step 1: Pull Latest Code
+
 ```bash
 cd /var/www/quickmailfilter
 git fetch origin
@@ -114,6 +119,7 @@ git pull origin main
 ```
 
 ### Step 2: Install Dependencies (if needed)
+
 ```bash
 # Backend
 cd backend
@@ -129,6 +135,7 @@ cd ..
 ```
 
 ### Step 3: Build Both
+
 ```bash
 # Backend (TypeScript → JavaScript)
 cd backend
@@ -145,14 +152,15 @@ cd ..
 
 **Potential Issues & Solutions:**
 
-| Issue | Solution |
-|-------|----------|
-| `terser not found` | `npm install --save-dev terser` |
+| Issue                          | Solution                                     |
+| ------------------------------ | -------------------------------------------- |
+| `terser not found`             | `npm install --save-dev terser`              |
 | `Build failed: circular chunk` | Normal warning, doesn't affect functionality |
-| `Missing packages` | Run `npm install` again |
-| `Compilation errors` | Check your TypeScript/code changes |
+| `Missing packages`             | Run `npm install` again                      |
+| `Compilation errors`           | Check your TypeScript/code changes           |
 
 ### Step 4: Restart Backend
+
 ```bash
 # Graceful restart (handles in-flight requests)
 pm2 restart quickmailfilter-api --wait-ready
@@ -168,6 +176,7 @@ pm2 logs quickmailfilter-api
 ```
 
 ### Step 5: Verify Deployment
+
 ```bash
 # Test backend health
 curl http://localhost:3004/api/health
@@ -180,6 +189,7 @@ curl https://quickmailfilter.com/api/health
 ```
 
 **Expected Responses:**
+
 ```json
 Backend health:
 {"status":"ok","server":"email-validator-saas","environment":"production","timestamp":"..."}
@@ -243,6 +253,7 @@ pm2 resurrect
 ### Clustering & Load Balancing
 
 Current setup uses **cluster mode with 2 instances**:
+
 ```js
 // ecosystem.config.js
 {
@@ -253,6 +264,7 @@ Current setup uses **cluster mode with 2 instances**:
 ```
 
 Monitor distribution:
+
 ```bash
 pm2 list  # Shows all instances
 ps aux | grep node  # Shows actual processes
@@ -618,6 +630,7 @@ curl http://localhost:3004/api/health
 ### System Hardening
 
 - [ ] **SSH Key-based Auth Only**
+
   ```bash
   sudo sed -i 's/#PermitRootLogin yes/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
   sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
@@ -625,6 +638,7 @@ curl http://localhost:3004/api/health
   ```
 
 - [ ] **Firewall Enabled**
+
   ```bash
   sudo ufw enable
   sudo ufw allow 22/tcp   # SSH
@@ -643,22 +657,26 @@ curl http://localhost:3004/api/health
 ### Application Security
 
 - [ ] **Environment Variables Protected**
+
   ```bash
   chmod 600 /var/www/quickmailfilter/backend/.env
   ```
 
 - [ ] **Dependencies Updated**
+
   ```bash
   npm audit fix  # Fix vulnerabilities
   ```
 
 - [ ] **SSL/TLS Hardened**
+
   ```
   Current config uses TLS 1.2+ only (good)
   Ciphers: HIGH:!aNULL:!MD5 (secure)
   ```
 
 - [ ] **API Rate Limiting** (if configured)
+
   ```bash
   # Check backend for rate limit middleware
   grep -r "rateLimit\|rate.limit" backend/src/
@@ -673,6 +691,7 @@ curl http://localhost:3004/api/health
 ### Monitoring Security
 
 - [ ] **Log Monitoring**
+
   ```bash
   # Watch for suspicious activity
   tail -f /var/log/nginx/access.log | grep -i error
@@ -680,6 +699,7 @@ curl http://localhost:3004/api/health
   ```
 
 - [ ] **Failed Login Attempts**
+
   ```bash
   grep "Failed password" /var/log/auth.log
   ```
@@ -774,12 +794,14 @@ sudo systemctl restart mongodb
 ### Getting Help
 
 1. **Check Logs First**
+
    ```bash
    pm2 logs quickmailfilter-api --lines 100
    tail -100 /var/log/nginx/error.log
    ```
 
 2. **System Info**
+
    ```bash
    node --version
    npm --version
@@ -798,26 +820,28 @@ sudo systemctl restart mongodb
 
 ### Common Error Messages
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `ENOENT: no such file or directory` | Missing file/folder | Check build output, run build again |
-| `EADDRINUSE: address already in use` | Port conflict | Kill process: `lsof -i :3004` |
-| `502 Bad Gateway` | Backend unreachable | Restart backend, check logs |
-| `504 Gateway Timeout` | Backend too slow | Check performance, restart PM2 |
-| `ERR_SSL_PROTOCOL_ERROR` | SSL issue | Check certificates, reload Nginx |
-| `ECONNREFUSED: Connection refused` | Service not running | Restart service, check status |
+| Error                                | Cause               | Fix                                 |
+| ------------------------------------ | ------------------- | ----------------------------------- |
+| `ENOENT: no such file or directory`  | Missing file/folder | Check build output, run build again |
+| `EADDRINUSE: address already in use` | Port conflict       | Kill process: `lsof -i :3004`       |
+| `502 Bad Gateway`                    | Backend unreachable | Restart backend, check logs         |
+| `504 Gateway Timeout`                | Backend too slow    | Check performance, restart PM2      |
+| `ERR_SSL_PROTOCOL_ERROR`             | SSL issue           | Check certificates, reload Nginx    |
+| `ECONNREFUSED: Connection refused`   | Service not running | Restart service, check status       |
 
 ---
 
 ## 📅 Maintenance Schedule
 
 ### Daily
+
 ```bash
 # Monitor from dashboard (PM2 Plus/similar)
 pm2 monit
 ```
 
 ### Weekly
+
 ```bash
 # Check logs for errors
 pm2 logs quickmailfilter-api | grep -i error
@@ -830,6 +854,7 @@ certbot certificates
 ```
 
 ### Monthly
+
 ```bash
 # Update dependencies
 cd backend && npm outdated && npm update
@@ -844,6 +869,7 @@ pm2 restart all
 ```
 
 ### Quarterly
+
 ```bash
 # Security updates
 sudo apt-get update
@@ -862,9 +888,9 @@ systemctl status nginx
 
 ## 📝 Version History
 
-| Date | Version | Changes |
-|------|---------|---------|
-| 2026-03-20 | 1.0 | Initial deployment guide based on live setup |
+| Date       | Version | Changes                                      |
+| ---------- | ------- | -------------------------------------------- |
+| 2026-03-20 | 1.0     | Initial deployment guide based on live setup |
 
 **Last Updated:** March 20, 2026  
 **Next Review:** 2026-04-20

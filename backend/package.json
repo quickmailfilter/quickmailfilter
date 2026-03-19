@@ -35,6 +35,7 @@
     "disposable-email-domains": "^1.0.59",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "firebase-admin": "^12.0.0",
     "mailcheck": "^1.1.1"
   },
   "devDependencies": {
@@ -53,10 +54,17 @@
     "typescript": "^4.6.4"
   },
   "pkg": {
-    "targets": ["node18-win-x64"],
+    "targets": [
+      "node18-win-x64"
+    ],
     "output": "email-validator",
-    "assets": ["dist/**/*", ".env"],
-    "scripts": ["dist/**/*.js"],
+    "assets": [
+      "dist/**/*",
+      ".env"
+    ],
+    "scripts": [
+      "dist/**/*.js"
+    ],
     "compress": "Brotli"
   }
 }

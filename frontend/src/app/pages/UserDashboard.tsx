@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { KPICard } from "../components/KPICard";
@@ -13,9 +12,8 @@ import {
   Mail,
   Upload,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
   TrendingUp,
+  MessageCircle,
 } from "lucide-react";
 import {
   PieChart,
@@ -65,8 +63,6 @@ export const UserDashboard = () => {
     { date: "Sun", verifications: 25 },
   ];
 
-  const quotaPercentage = user ? (user.usedQuota / user.monthlyQuota) * 100 : 0;
-
   return (
     <div className="p-4 sm:p-8 space-y-6 sm:space-y-8 overflow-hidden max-w-7xl mx-auto">
       {/* Welcome Header */}
@@ -87,7 +83,9 @@ export const UserDashboard = () => {
         <KPICard
           title="Current Plan"
           value={
-            user?.plan.charAt(0).toUpperCase() + user?.plan.slice(1) || "Free"
+            user?.plan
+              ? user.plan.charAt(0).toUpperCase() + user.plan.slice(1)
+              : "Free"
           }
           icon={TrendingUp}
           subtitle="Active subscription"
@@ -95,7 +93,7 @@ export const UserDashboard = () => {
         />
         <KPICard
           title="Monthly Quota"
-          value={`${user ? user.monthlyQuota - user.usedQuota : 0}`}
+          value={`${user ? (user.monthlyQuota || 0) - (user.usedQuota || 0) : 0}`}
           icon={Upload}
           subtitle={`${user?.usedQuota || 0} / ${user?.monthlyQuota || 0} used`}
           color="green"
@@ -180,7 +178,7 @@ export const UserDashboard = () => {
 
       {/* Quick Actions */}
       <div
-        className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         data-aos="fade-up"
         data-aos-delay="300"
       >
@@ -230,6 +228,31 @@ export const UserDashboard = () => {
             </div>
             <div className="mt-auto pt-4 flex items-center text-blue-200 font-bold text-sm">
               Clean your list <TrendingUp className="w-4 h-4 ml-2" />
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          to="/contact"
+          className="group relative overflow-hidden bg-white p-6 sm:p-8 rounded-2xl border border-[#E5E7EB] hover:border-green-500 shadow-sm hover:shadow-xl transition-all duration-300"
+        >
+          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+            <MessageCircle className="w-24 h-24 text-green-600" />
+          </div>
+          <div className="relative z-10 flex flex-col h-full gap-4">
+            <div className="w-12 h-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <MessageCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-[#1E3A8A] mb-1">
+                Get Support
+              </h3>
+              <p className="text-gray-500 text-sm">
+                Have questions? Reach out to our support team.
+              </p>
+            </div>
+            <div className="mt-auto pt-4 flex items-center text-green-600 font-bold text-sm">
+              Contact us <TrendingUp className="w-4 h-4 ml-2" />
             </div>
           </div>
         </Link>

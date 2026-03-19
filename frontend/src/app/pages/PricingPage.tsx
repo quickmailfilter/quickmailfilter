@@ -499,6 +499,7 @@ export const PricingPage = () => {
             Need a custom plan or have questions?
           </p>
           <Button
+            onClick={() => navigate("/contact")}
             variant="outline"
             size="lg"
             className="border-blue-600 text-blue-600 hover:bg-blue-100"

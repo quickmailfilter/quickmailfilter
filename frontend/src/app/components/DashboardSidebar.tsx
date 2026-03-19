@@ -8,6 +8,7 @@ import {
   Users,
   FileText,
   BarChart3,
+  MessageSquare,
   X,
   LogOut,
   Zap,
@@ -26,11 +27,17 @@ export const DashboardSidebar = ({ onClose }: { onClose?: () => void }) => {
     { to: "/dashboard/history", icon: History, label: "History" },
     { to: "/dashboard/my-plan", icon: Zap, label: "My Plan" },
     { to: "/dashboard/settings", icon: Settings, label: "Settings" },
+    { to: "/contact", icon: MessageSquare, label: "Contact Support" },
   ];
 
   const adminLinks = [
     { to: "/admin", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/admin/users", icon: Users, label: "User Management" },
+    {
+      to: "/admin/contact-submissions",
+      icon: MessageSquare,
+      label: "Contact Submissions",
+    },
     { to: "/admin/files", icon: FileText, label: "File Manager" },
     { to: "/admin/logs", icon: BarChart3, label: "System Logs" },
     { to: "/admin/settings", icon: Settings, label: "Settings" },
