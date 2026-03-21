@@ -46,7 +46,6 @@ import { PaymentSuccessPage } from "./pages/PaymentSuccessPage";
 
 // Admin Pages
 import { AdminLoginPage } from "./pages/AdminLoginPage";
-import { AdminSignupPage } from "./pages/AdminSignupPage";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AdminLogsPage } from "./pages/AdminLogsPage";
@@ -357,14 +356,6 @@ function AppContent() {
           element={
             <PublicLayout>
               <AdminLoginPage />
-            </PublicLayout>
-          }
-        />
-        <Route
-          path="/admin/signup"
-          element={
-            <PublicLayout>
-              <AdminSignupPage />
             </PublicLayout>
           }
         />

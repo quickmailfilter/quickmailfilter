@@ -113,15 +113,14 @@ export const AdminLoginPage = () => {
             </form>
 
             <div className="mt-6 pt-6 border-t border-gray-200">
-              <p className="text-sm text-gray-600 text-center mb-3">
-                Don't have an admin account?
+              <p className="text-sm text-gray-600 text-center">
+                <Link
+                  to="/"
+                  className="text-[#2563EB] hover:underline font-medium"
+                >
+                  Back to Home
+                </Link>
               </p>
-              <Link
-                to="/admin/signup"
-                className="block w-full px-4 py-2.5 border-2 border-[#2563EB] text-[#2563EB] rounded-lg hover:bg-blue-50 transition-colors font-medium text-center text-sm"
-              >
-                Create Admin Account
-              </Link>
             </div>
           </CardContent>
         </Card>

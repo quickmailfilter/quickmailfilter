@@ -15,7 +15,7 @@ import { ShieldCheck, Mail, Lock } from "lucide-react";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, signInWithGoogle, user } = useApp();
+  const { signInWithGoogle, user } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -33,7 +33,6 @@ export const LoginPage = () => {
     setLoading(true);
 
     try {
-      const success = await login(email, password);
       // Success case is handled by the useEffect redirect based on user state
     } catch (error: any) {
       // Error handled by context
@@ -55,14 +54,9 @@ export const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F8FAFC] to-white flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md" data-aos="fade-up">
+      <div className="w-full max-w-md">
         {/* Logo */}
-        <Link
-          to="/"
-          className="flex items-center gap-2 justify-center mb-8"
-          data-aos="zoom-in"
-          data-aos-delay="200"
-        >
+        <Link to="/" className="flex items-center gap-2 justify-center mb-8">
           <div className="w-12 h-12 bg-gradient-to-br from-[#2563EB] to-[#1E3A8A] rounded-xl flex items-center justify-center">
             <ShieldCheck className="w-7 h-7 text-white" />
           </div>
@@ -70,11 +64,7 @@ export const LoginPage = () => {
         </Link>
 
         <Card className="border-[#E5E7EB] shadow-xl overflow-hidden">
-          <CardHeader
-            className="text-center pb-4"
-            data-aos="fade-down"
-            data-aos-delay="400"
-          >
+          <CardHeader className="text-center pb-4">
             <CardTitle className="text-2xl font-bold text-gray-900">
               Welcome Back
             </CardTitle>
@@ -83,11 +73,7 @@ export const LoginPage = () => {
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email */}
-              <div
-                className="space-y-2"
-                data-aos="fade-right"
-                data-aos-delay="500"
-              >
+              <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
@@ -105,11 +91,7 @@ export const LoginPage = () => {
               </div>
 
               {/* Password */}
-              <div
-                className="space-y-2"
-                data-aos="fade-right"
-                data-aos-delay="600"
-              >
+              <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
@@ -127,11 +109,7 @@ export const LoginPage = () => {
               </div>
 
               {/* Remember Me & Forgot Password */}
-              <div
-                className="flex items-center justify-between"
-                data-aos="fade-up"
-                data-aos-delay="700"
-              >
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Checkbox
                     id="remember"
@@ -158,14 +136,12 @@ export const LoginPage = () => {
                 className="w-full bg-[#2563EB] hover:bg-[#1E3A8A]"
                 size="lg"
                 disabled={loading}
-                data-aos="zoom-in"
-                data-aos-delay="800"
               >
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
 
               {/* OAuth Divider */}
-              <div className="relative" data-aos="fade-up" data-aos-delay="900">
+              <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-[#E5E7EB]"></div>
                 </div>
@@ -183,8 +159,6 @@ export const LoginPage = () => {
                 className="w-full border-[#E5E7EB] hover:bg-gray-50 !text-[#2563EB]"
                 size="lg"
                 onClick={handleGoogleSignIn}
-                data-aos="fade-up"
-                data-aos-delay="1000"
               >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                   <path
@@ -209,11 +183,7 @@ export const LoginPage = () => {
             </form>
 
             {/* Sign Up Link */}
-            <div
-              className="mt-6 text-center text-sm text-gray-600"
-              data-aos="fade-up"
-              data-aos-delay="1100"
-            >
+            <div className="mt-6 text-center text-sm text-gray-600">
               Don't have an account?{" "}
               <Link
                 to="/signup"
@@ -226,11 +196,7 @@ export const LoginPage = () => {
         </Card>
 
         {/* Demo Credentials */}
-        <Card
-          className="mt-4 border-amber-200 bg-amber-50"
-          data-aos="fade-up"
-          data-aos-delay="1200"
-        >
+        <Card className="mt-4 border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-800 text-center">
               <strong>Demo:</strong> Use any email from the signup page or
