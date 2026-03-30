@@ -448,6 +448,147 @@ export const PricingPage = () => {
           </div>
         </div>
 
+        {/* Pay As You Go Plans Section */}
+        <div className="mb-20">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              💳 Pay As You Go Plans
+            </h2>
+            <p className="text-gray-600">
+              Perfect for occasional users. No recurring charges, use credits
+              whenever you need them.
+            </p>
+          </div>
+
+          {displayPlans.filter((p) => p.planType === "onetime").length > 0 ? (
+            <>
+              {/* Desktop Grid */}
+              <div className="hidden md:grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {displayPlans
+                  .filter((p) => p.planType === "onetime")
+                  .map((plan, index) => (
+                    <div
+                      key={plan.id}
+                      className="relative group h-full transform transition-all duration-300 hover:scale-105"
+                      data-aos="fade-up"
+                      data-aos-delay={index * 100}
+                    >
+                      <Card className="h-full border-2 border-amber-200 hover:border-amber-400 transition-colors duration-300 flex flex-col bg-gradient-to-br from-amber-50 to-white">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-lg font-bold text-gray-900">
+                            {plan.name}
+                          </CardTitle>
+                          <p className="text-xs text-gray-500 mt-1 h-10 line-clamp-2">
+                            {plan.description}
+                          </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4 flex-1 flex flex-col">
+                          {/* One-Time Price */}
+                          <div className="bg-white p-3 rounded-lg border border-amber-100">
+                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">
+                              One-Time Price
+                            </p>
+                            <p className="text-2xl font-bold text-amber-600">
+                              ₹{plan.price.toLocaleString()}
+                            </p>
+                          </div>
+
+                          {/* Credit Amount */}
+                          <div className="bg-white p-3 rounded-lg border border-amber-100">
+                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">
+                              Credits Included
+                            </p>
+                            <p className="text-2xl font-bold text-orange-600">
+                              {(
+                                plan.creditAmount ||
+                                plan.quota ||
+                                0
+                              ).toLocaleString()}
+                            </p>
+                          </div>
+
+                          {/* Features */}
+                          <ul className="space-y-2 text-sm">
+                            {plan.features.map((feature, idx) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                <span className="text-gray-600 text-xs">
+                                  {feature}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+
+                          {/* CTA Button */}
+                          <Button
+                            className="w-full py-3 text-sm font-bold mt-auto bg-amber-600 hover:bg-amber-700 text-white transition-all duration-300"
+                            onClick={() => handlePlanCTA(plan)}
+                          >
+                            Get Credits Now
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Mobile Grid */}
+              <div className="md:hidden grid grid-cols-2 gap-4">
+                {displayPlans
+                  .filter((p) => p.planType === "onetime")
+                  .map((plan) => (
+                    <Card
+                      key={plan.id}
+                      className="border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-white flex flex-col"
+                    >
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold text-gray-900">
+                          {plan.name}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2 flex-1 flex flex-col">
+                        <div className="bg-white p-2 rounded border border-amber-100">
+                          <p className="text-xs text-gray-400 uppercase font-bold">
+                            Price
+                          </p>
+                          <p className="text-xl font-bold text-amber-600">
+                            ₹{plan.price.toLocaleString()}
+                          </p>
+                        </div>
+
+                        <div className="bg-white p-2 rounded border border-amber-100">
+                          <p className="text-xs text-gray-400 uppercase font-bold">
+                            Credits
+                          </p>
+                          <p className="text-lg font-bold text-orange-600">
+                            {(
+                              plan.creditAmount ||
+                              plan.quota ||
+                              0
+                            ).toLocaleString()}
+                          </p>
+                        </div>
+
+                        <Button
+                          className="w-full py-2 text-xs font-bold mt-auto bg-amber-600 hover:bg-amber-700 text-white"
+                          onClick={() => handlePlanCTA(plan)}
+                        >
+                          Buy Now
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <p className="text-gray-500">
+                No pay-as-you-go plans available at the moment.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* FAQs */}
         <div className="max-w-3xl mx-auto mb-20">
           <h2

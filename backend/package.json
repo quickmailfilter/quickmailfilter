@@ -36,7 +36,8 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "firebase-admin": "^12.0.0",
-    "mailcheck": "^1.1.1"
+    "mailcheck": "^1.1.1",
+    "node-cron": "^3.0.2"
   },
   "devDependencies": {
     "@types/eslint": "^6.1.1",

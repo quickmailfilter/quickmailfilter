@@ -449,16 +449,6 @@ export const MyPlanPage = () => {
                       </p>
                     </div>
 
-                    {/* Cost Per Credit */}
-                    <div className="bg-white p-3 rounded-lg border border-gray-100">
-                      <p className="text-xs text-gray-400 uppercase font-bold mb-1">
-                        Cost Per Credit
-                      </p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        ₹{(plan.price / plan.quota).toFixed(2)}
-                      </p>
-                    </div>
-
                     {/* Features */}
                     <ul className="space-y-2 text-sm">
                       {plan.features.map((feature, idx) => (
@@ -556,15 +546,6 @@ export const MyPlanPage = () => {
                             </p>
                             <p className="text-2xl font-bold text-gray-900">
                               ₹{plan.price.toLocaleString()}
-                            </p>
-                          </div>
-
-                          <div className="bg-white p-3 rounded-lg border border-gray-100">
-                            <p className="text-xs text-gray-400 uppercase font-bold mb-1">
-                              Cost Per Credit
-                            </p>
-                            <p className="text-2xl font-bold text-blue-600">
-                              ₹{(plan.price / plan.quota).toFixed(2)}
                             </p>
                           </div>
 

@@ -15,6 +15,7 @@ const axios = require("axios");
 const cors = require("cors");
 const crypto = require("crypto");
 const admin = require("firebase-admin");
+const cron = require("node-cron");
 
 // Initialize Firebase Admin if credentials are provided
 let firebaseInitialized = false;
@@ -93,6 +94,60 @@ if (!razorpayConfigured) {
 // Payment storage (in production, use proper database)
 const paymentTransactions = new Map();
 
+// ========== DAILY CREDIT RESET - CRON JOB ==========
+
+// Function to reset daily credits for all users
+const resetDailyCreditsForAll = async () => {
+  if (!firebaseInitialized) {
+    console.warn("⚠️  Firebase not initialized. Skipping daily reset.");
+    return;
+  }
+
+  try {
+    const db = admin.firestore();
+    const usersRef = db.collection("users");
+    const snapshot = await usersRef.get();
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    const batch = db.batch();
+
+    snapshot.forEach((doc) => {
+      const userData = doc.data();
+      // Only reset if user has daily credits set
+      if (userData.dailyCredits && userData.dailyCredits > 0) {
+        batch.update(doc.ref, {
+          dailyUsedQuota: 0,
+          lastDailyReset: admin.firestore.Timestamp.now(),
+        });
+        successCount++;
+      }
+    });
+
+    if (successCount > 0) {
+      await batch.commit();
+      console.log(
+        `✅ Daily credit reset completed: ${successCount} users reset, ${errorCount} errors`,
+      );
+    } else {
+      console.log("ℹ️  No users with daily credits to reset");
+    }
+  } catch (error) {
+    console.error("❌ Daily credit reset failed:", error.message);
+  }
+};
+
+// Schedule daily reset at midnight UTC (adjust as needed)
+// Format: minute hour day month dayOfWeek (0 = Sunday)
+// "0 0 * * *" = every day at 00:00 UTC
+const dailyResetJob = cron.schedule("0 0 * * *", async () => {
+  console.log("🔄 Running scheduled daily credit reset...");
+  await resetDailyCreditsForAll();
+});
+
+console.log("✅ Daily credit reset job scheduled (runs at midnight UTC)");
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -119,10 +174,38 @@ app.get("/api/debug/config", (req, res) => {
 
 // Email validation endpoint
 app.post("/api/validate", async (req, res) => {
-  const { email } = req.body;
+  const { email, userId } = req.body;
 
   if (!email || typeof email !== "string") {
     return res.status(400).json({ error: "Invalid email parameter" });
+  }
+
+  // Check daily limit if userId is provided
+  if (userId && firebaseInitialized) {
+    try {
+      const db = admin.firestore();
+      const userDoc = await db.collection("users").doc(userId).get();
+
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        const dailyCredits = userData.dailyCredits || 0;
+        const dailyUsedQuota = userData.dailyUsedQuota || 0;
+
+        // Check if user exceeded daily limit
+        if (dailyCredits > 0 && dailyUsedQuota >= dailyCredits) {
+          return res.status(429).json({
+            error: "Daily limit exceeded",
+            message: `You have reached your daily limit of ${dailyCredits} verifications. Limit resets at midnight UTC.`,
+            dailyCredits,
+            dailyUsedQuota,
+            remainingToday: 0,
+          });
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to check daily limit:", error.message);
+      // Continue with validation if daily limit check fails
+    }
   }
 
   try {
@@ -433,67 +516,320 @@ app.get("/api/payment/status/:orderId", (req, res) => {
 /**
  * Get Pricing Plans
  * GET /api/payment/plans
+ * Returns both subscription and one-time plans from Firestore
  */
-app.get("/api/payment/plans", (req, res) => {
-  const plans = [
-    {
-      id: "plan-free",
-      name: "Free Trial",
-      price: 0,
-      currency: "INR",
-      description: "Perfect for testing our service",
-      quota: 50,
-      features: [
-        "50 monthly verifications",
-        "Format validation",
-        "Domain & MX checks",
-        "Disposable detection",
-      ],
-      popular: false,
-      active: true,
-    },
-    {
-      id: "plan-business",
-      name: "Business",
-      price: 4099,
-      currency: "INR",
-      description: "For growing businesses",
-      quota: 50000,
-      features: [
-        "50,000 monthly verifications",
-        "Bulk list cleaning",
-        "Advanced filtering",
-        "Priority support",
-        "API access",
-        "Custom integrations",
-      ],
-      popular: true,
-      active: true,
-    },
-    {
-      id: "plan-enterprise",
-      name: "Enterprise",
-      price: 16599,
-      currency: "INR",
-      description: "For large organizations",
-      quota: 150000,
-      features: [
-        "150,000 monthly verifications",
-        "24/7 premium support",
-        "Custom integrations",
-        "SLA guarantee",
-        "Dedicated account manager",
-        "Advanced reporting",
-      ],
-      popular: false,
-      active: true,
-    },
-  ];
+app.get("/api/payment/plans", async (req, res) => {
+  try {
+    // Try to fetch from Firestore first
+    if (firebaseInitialized) {
+      try {
+        const db = admin.firestore();
+        const plansSnapshot = await db
+          .collection("pricingPlans")
+          .where("active", "==", true)
+          .orderBy("price", "asc")
+          .get();
 
-  res.json({
-    success: true,
-    plans,
-  });
+        if (!plansSnapshot.empty) {
+          const plans = [];
+          plansSnapshot.forEach((doc) => {
+            plans.push({
+              id: doc.id,
+              ...doc.data(),
+            });
+          });
+
+          console.log(`✅ Loaded ${plans.length} active plans from Firestore`);
+          return res.json({
+            success: true,
+            plans,
+            source: "firestore",
+          });
+        } else {
+          console.warn(
+            "⚠️  No active plans found in Firestore. Using fallback.",
+          );
+        }
+      } catch (firestoreError) {
+        console.warn("⚠️  Firestore fetch error:", firestoreError.message);
+      }
+    }
+
+    // Fallback: Return hardcoded plans
+    const plans = [
+      {
+        id: "plan-free",
+        name: "Free Trial",
+        price: 0,
+        currency: "INR",
+        description: "Perfect for testing our service",
+        quota: 50,
+        planType: "subscription",
+        dailyCredits: 0,
+        billingPeriod: "monthly",
+        features: [
+          "50 monthly verifications",
+          "Format validation",
+          "Domain & MX checks",
+          "Disposable detection",
+        ],
+        popular: false,
+        active: true,
+      },
+      {
+        id: "plan-business",
+        name: "Business",
+        price: 4099,
+        currency: "INR",
+        description: "For growing businesses",
+        quota: 50000,
+        planType: "subscription",
+        dailyCredits: 0,
+        billingPeriod: "monthly",
+        features: [
+          "50,000 monthly verifications",
+          "Bulk list cleaning",
+          "Advanced filtering",
+          "Priority support",
+          "API access",
+          "Custom integrations",
+        ],
+        popular: true,
+        active: true,
+      },
+      {
+        id: "plan-enterprise",
+        name: "Enterprise",
+        price: 16599,
+        currency: "INR",
+        description: "For large organizations",
+        quota: 150000,
+        planType: "subscription",
+        dailyCredits: 0,
+        billingPeriod: "monthly",
+        features: [
+          "150,000 monthly verifications",
+          "24/7 premium support",
+          "Custom integrations",
+          "SLA guarantee",
+          "Dedicated account manager",
+          "Advanced reporting",
+        ],
+        popular: false,
+        active: true,
+      },
+    ];
+
+    console.log("ℹ️  Using fallback hardcoded plans");
+    res.json({
+      success: true,
+      plans,
+      source: "fallback",
+    });
+  } catch (error) {
+    console.error("❌ Error fetching plans:", error.message);
+    res.status(500).json({
+      error: "Failed to fetch pricing plans",
+      message: error.message,
+    });
+  }
+});
+
+// ========== DAILY CREDITS ENDPOINTS ==========
+
+/**
+ * Get User's Daily Credit Status
+ * GET /api/credits/daily-status/:userId
+ * Returns: { dailyCredits, dailyUsedQuota, remainingToday, lastDailyReset }
+ */
+app.get("/api/credits/daily-status/:userId", async (req, res) => {
+  if (!firebaseInitialized) {
+    return res.status(503).json({
+      error: "Service unavailable",
+      message: "Firebase not initialized",
+    });
+  }
+
+  const { userId } = req.params;
+
+  try {
+    const db = admin.firestore();
+    const userDoc = await db.collection("users").doc(userId).get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({
+        error: "User not found",
+        userId,
+      });
+    }
+
+    const userData = userDoc.data();
+    const dailyCredits = userData.dailyCredits || 0;
+    const dailyUsedQuota = userData.dailyUsedQuota || 0;
+    const remainingToday = Math.max(0, dailyCredits - dailyUsedQuota);
+    const lastDailyReset = userData.lastDailyReset?.toDate() || new Date();
+
+    res.json({
+      success: true,
+      userId,
+      dailyCredits,
+      dailyUsedQuota,
+      remainingToday,
+      lastDailyReset,
+      message: `${remainingToday}/${dailyCredits} credits remaining today`,
+    });
+  } catch (error) {
+    console.error("Error fetching daily credit status:", error.message);
+    res.status(500).json({
+      error: "Failed to fetch daily credit status",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Check if User Exceeded Daily Limit
+ * GET /api/credits/check-daily-limit/:userId
+ * Returns: { exceededDaily, remainingToday, dailyCredits }
+ */
+app.get("/api/credits/check-daily-limit/:userId", async (req, res) => {
+  if (!firebaseInitialized) {
+    return res.status(503).json({
+      error: "Service unavailable",
+      message: "Firebase not initialized",
+    });
+  }
+
+  const { userId } = req.params;
+
+  try {
+    const db = admin.firestore();
+    const userDoc = await db.collection("users").doc(userId).get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({
+        error: "User not found",
+        userId,
+      });
+    }
+
+    const userData = userDoc.data();
+    const dailyCredits = userData.dailyCredits || 0;
+    const dailyUsedQuota = userData.dailyUsedQuota || 0;
+    const exceededDaily = dailyCredits > 0 && dailyUsedQuota >= dailyCredits;
+    const remainingToday = Math.max(0, dailyCredits - dailyUsedQuota);
+
+    res.json({
+      success: true,
+      userId,
+      exceededDaily,
+      dailyCredits,
+      dailyUsedQuota,
+      remainingToday,
+    });
+  } catch (error) {
+    console.error("Error checking daily limit:", error.message);
+    res.status(500).json({
+      error: "Failed to check daily limit",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Admin: Manually Reset User's Daily Quota
+ * POST /api/admin/reset-daily-quota/:userId
+ * Body: { adminKey?: string }
+ */
+app.post("/api/admin/reset-daily-quota/:userId", async (req, res) => {
+  if (!firebaseInitialized) {
+    return res.status(503).json({
+      error: "Service unavailable",
+      message: "Firebase not initialized",
+    });
+  }
+
+  const { userId } = req.params;
+  const { adminKey } = req.body;
+
+  // Basic admin validation (in production, use proper authentication)
+  const ADMIN_KEY = process.env.ADMIN_API_KEY || "admin-key-change-me";
+  if (adminKey !== ADMIN_KEY) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "Invalid admin key",
+    });
+  }
+
+  try {
+    const db = admin.firestore();
+    const userRef = db.collection("users").doc(userId);
+
+    await userRef.update({
+      dailyUsedQuota: 0,
+      lastDailyReset: admin.firestore.Timestamp.now(),
+    });
+
+    const updatedDoc = await userRef.get();
+    const userData = updatedDoc.data();
+
+    res.json({
+      success: true,
+      message: `Daily quota reset for user ${userId}`,
+      userId,
+      dailyCredits: userData.dailyCredits || 0,
+      dailyUsedQuota: 0,
+      lastDailyReset: userData.lastDailyReset?.toDate() || new Date(),
+    });
+  } catch (error) {
+    console.error("Error resetting daily quota:", error.message);
+    res.status(500).json({
+      error: "Failed to reset daily quota",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Admin: Reset All Users' Daily Quotas
+ * POST /api/admin/reset-all-daily-quotas
+ * Body: { adminKey: string }
+ */
+app.post("/api/admin/reset-all-daily-quotas", async (req, res) => {
+  if (!firebaseInitialized) {
+    return res.status(503).json({
+      error: "Service unavailable",
+      message: "Firebase not initialized",
+    });
+  }
+
+  const { adminKey } = req.body;
+
+  // Basic admin validation
+  const ADMIN_KEY = process.env.ADMIN_API_KEY || "admin-key-change-me";
+  if (adminKey !== ADMIN_KEY) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "Invalid admin key",
+    });
+  }
+
+  try {
+    const db = admin.firestore();
+    const result = await resetDailyCreditsForAll();
+
+    res.json({
+      success: true,
+      message: "Daily quotas reset for all users",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error resetting all daily quotas:", error.message);
+    res.status(500).json({
+      error: "Failed to reset all daily quotas",
+      message: error.message,
+    });
+  }
 });
 
 app.use((req, res) => {

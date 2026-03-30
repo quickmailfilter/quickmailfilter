@@ -71,6 +71,9 @@ export interface User {
   plan: string;
   monthlyQuota: number;
   usedQuota: number;
+  dailyCredits?: number; // Daily allowance for subscription plans
+  dailyUsedQuota?: number; // Credits used today
+  lastDailyReset?: Date; // Last time daily quota was reset
   createdAt: Date;
   disabled?: boolean;
 }
@@ -247,6 +250,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               plan: adminData.plan || "enterprise",
               monthlyQuota: adminData.monthlyQuota || QUOTA_LIMITS.enterprise,
               usedQuota: adminData.usedQuota || 0,
+              dailyCredits: adminData.dailyCredits || 0,
+              dailyUsedQuota: adminData.dailyUsedQuota || 0,
+              lastDailyReset: adminData.lastDailyReset?.toDate() || new Date(),
               createdAt: adminData.createdAt?.toDate() || new Date(),
               disabled: adminData.disabled || false,
             };
@@ -270,6 +276,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 plan: userData.plan || "free",
                 monthlyQuota: userData.monthlyQuota || QUOTA_LIMITS.free,
                 usedQuota: userData.usedQuota || 0,
+                dailyCredits: userData.dailyCredits || 0,
+                dailyUsedQuota: userData.dailyUsedQuota || 0,
+                lastDailyReset: userData.lastDailyReset?.toDate() || new Date(),
                 createdAt: userData.createdAt?.toDate() || new Date(),
                 disabled: userData.disabled || false,
               };
@@ -442,6 +451,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           plan: data.plan || "free",
           monthlyQuota: data.monthlyQuota || QUOTA_LIMITS.free,
           usedQuota: data.usedQuota || 0,
+          dailyCredits: data.dailyCredits || 0,
+          dailyUsedQuota: data.dailyUsedQuota || 0,
+          lastDailyReset: data.lastDailyReset?.toDate() || new Date(),
           createdAt: data.createdAt?.toDate() || new Date(),
           disabled: data.disabled || false,
         });
@@ -511,6 +523,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         plan: "free",
         monthlyQuota: QUOTA_LIMITS.free,
         usedQuota: 0,
+        dailyCredits: 0,
+        dailyUsedQuota: 0,
+        lastDailyReset: Timestamp.now(),
         createdAt: Timestamp.now(),
       });
 
@@ -560,6 +575,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         plan: "enterprise",
         monthlyQuota: QUOTA_LIMITS.enterprise,
         usedQuota: 0,
+        dailyCredits: 0,
+        dailyUsedQuota: 0,
+        lastDailyReset: Timestamp.now(),
         createdAt: Timestamp.now(),
         disabled: false,
         role: "admin",
@@ -639,6 +657,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           plan: "free",
           monthlyQuota: QUOTA_LIMITS.free,
           usedQuota: 0,
+          dailyCredits: 0,
+          dailyUsedQuota: 0,
+          lastDailyReset: Timestamp.now(),
           createdAt: Timestamp.now(),
         });
       }
@@ -693,9 +714,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Verify email using backend validator API (public - no auth required)
   const verifyEmail = async (email: string): Promise<EmailVerification> => {
     try {
-      // Call the real email validator backend API
+      // Check daily limits if user has subscription plan with daily credits
+      if (user && user.dailyCredits && user.dailyCredits > 0) {
+        if ((user.dailyUsedQuota || 0) >= user.dailyCredits) {
+          throw new Error(
+            `Daily limit reached! You have used ${user.dailyUsedQuota || 0}/${user.dailyCredits} credits today. Limit resets at midnight UTC.`,
+          );
+        }
+      }
+
+      // Call the real email validator backend API with userId for daily limit check
       const response = await axios.post(`${VALIDATOR_API_URL}/api/validate`, {
         email: email.toLowerCase().trim(),
+        userId: user?.id, // Backend will verify daily limits
       });
 
       const validatorResult = response.data;
@@ -771,13 +802,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             userId: verification.userId,
           });
 
-          // Increment usedQuota in Firestore atomically
+          // Increment usedQuota and dailyUsedQuota in Firestore atomically
           const userRef = doc(db, "users", user.id);
-          await updateDoc(userRef, { usedQuota: increment(1) });
+          await updateDoc(userRef, {
+            usedQuota: increment(1),
+            dailyUsedQuota: increment(1),
+          });
 
           // Update local user state
           setUser((prev) =>
-            prev ? { ...prev, usedQuota: prev.usedQuota + 1 } : prev,
+            prev
+              ? {
+                  ...prev,
+                  usedQuota: prev.usedQuota + 1,
+                  dailyUsedQuota: (prev.dailyUsedQuota || 0) + 1,
+                }
+              : prev,
           );
         } catch (saveError) {
           console.error("Error saving verification to Firestore:", saveError);
@@ -1051,12 +1091,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const newQuota = planConfig.quota;
+    const dailyCredits = planConfig.dailyCredits || 0;
 
     try {
       const userRef = doc(db, "users", user.id);
       await updateDoc(userRef, {
         plan: normalizedPlan,
         monthlyQuota: newQuota,
+        dailyCredits,
+        dailyUsedQuota: 0, // Reset daily used quota on plan upgrade
+        lastDailyReset: Timestamp.now(),
       });
 
       // Record payment document
@@ -1073,7 +1117,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setUser((prev) =>
-        prev ? { ...prev, plan: normalizedPlan, monthlyQuota: newQuota } : prev,
+        prev
+          ? {
+              ...prev,
+              plan: normalizedPlan,
+              monthlyQuota: newQuota,
+              dailyCredits,
+              dailyUsedQuota: 0,
+              lastDailyReset: new Date(),
+            }
+          : prev,
       );
       toast.success(`Plan upgraded to ${normalizedPlan}!`);
       return true;
@@ -1092,7 +1145,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const firestoreUpdates: Record<string, unknown> = { ...updates };
       if (updates.plan) {
-        // Find the plan in pricingPlans to get its quota
+        // Find the plan in pricingPlans to get its quota and daily credits
         const normalizedPlan = updates.plan.toLowerCase().trim();
         const planConfig = pricingPlans.find(
           (p) => p.name.toLowerCase().trim() === normalizedPlan,
@@ -1100,6 +1153,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         if (planConfig) {
           firestoreUpdates.monthlyQuota = planConfig.quota;
+          firestoreUpdates.dailyCredits = planConfig.dailyCredits || 0;
+          firestoreUpdates.dailyUsedQuota = 0; // Reset daily usage
+          firestoreUpdates.lastDailyReset = Timestamp.now();
         } else {
           console.warn(
             `Plan not found in pricing plans: ${updates.plan}. Using existing quota.`,
@@ -1120,6 +1176,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               );
               if (planConfig) {
                 newData.monthlyQuota = planConfig.quota;
+                newData.dailyCredits = planConfig.dailyCredits || 0;
+                newData.dailyUsedQuota = 0;
+                newData.lastDailyReset = new Date();
               }
             }
             return newData;
