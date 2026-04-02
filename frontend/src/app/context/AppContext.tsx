@@ -121,6 +121,7 @@ export interface BulkUpload {
   fileUrl?: string;
   emails?: string[];
   results: EmailVerification[];
+  quotaLimited?: boolean;
 }
 
 interface AppContextType {
@@ -229,12 +230,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     enterprise: 1000000,
   };
 
+  // Helper function to disconnect and clear all user data
+  const disconnect = () => {
+    setUser(null);
+    setVerificationHistory([]);
+    setBulkUploads([]);
+    setAllUsers([]);
+    setAllVerifications([]);
+    setPayments([]);
+  };
+
   // Listen to Firebase Auth state
   useEffect(() => {
+    let isMounted = true;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setLoading(true);
-      if (firebaseUser) {
-        try {
+      if (!isMounted) return;
+
+      try {
+        setLoading(true);
+
+        if (firebaseUser) {
           // First, try to get admin document from 'admin' collection
           const adminRef = doc(db, "admin", firebaseUser.uid);
           const adminSnap = await getDoc(adminRef);
@@ -256,11 +272,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               createdAt: adminData.createdAt?.toDate() || new Date(),
               disabled: adminData.disabled || false,
             };
-            setUser(appUser);
+
+            // Check if admin account is disabled
+            if (appUser.disabled) {
+              await signOut(auth);
+              if (isMounted) {
+                disconnect();
+                toast.error("Your admin account has been disabled.");
+              }
+              return;
+            }
+
+            if (isMounted) setUser(appUser);
 
             // Admin: load all users, all verifications
-            await loadAllUsers();
-            await loadAllVerifications();
+            if (isMounted) {
+              await loadAllUsers();
+              await loadAllVerifications();
+            }
           } else {
             // User is not an admin - try to get from 'users' collection
             const userRef = doc(db, "users", firebaseUser.uid);
@@ -282,30 +311,82 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 createdAt: userData.createdAt?.toDate() || new Date(),
                 disabled: userData.disabled || false,
               };
-              setUser(appUser);
+
+              // Check if user account is disabled
+              if (appUser.disabled) {
+                await signOut(auth);
+                if (isMounted) {
+                  disconnect();
+                  toast.error(
+                    "Your account has been disabled. Please contact support.",
+                  );
+                }
+                return;
+              }
+
+              if (isMounted) setUser(appUser);
 
               // Regular user: load personal data
-              await loadVerificationHistory(firebaseUser.uid);
-              await loadBulkUploads(firebaseUser.uid);
-              await loadPayments(firebaseUser.uid);
+              if (isMounted) {
+                await loadVerificationHistory(firebaseUser.uid);
+                await loadBulkUploads(firebaseUser.uid);
+                await loadPayments(firebaseUser.uid);
+              }
+            } else {
+              // No user document found - create a default one
+              console.warn("User document not found, creating default user");
+              const newUserRef = doc(db, "users", firebaseUser.uid);
+              await setDoc(newUserRef, {
+                name: firebaseUser.displayName || "User",
+                email: firebaseUser.email,
+                role: "user",
+                plan: "free",
+                monthlyQuota: QUOTA_LIMITS.free,
+                usedQuota: 0,
+                dailyCredits: 0,
+                dailyUsedQuota: 0,
+                lastDailyReset: new Date(),
+                createdAt: new Date(),
+                disabled: false,
+              });
+
+              const appUser: User = {
+                id: firebaseUser.uid,
+                name: firebaseUser.displayName || "User",
+                email: firebaseUser.email || "",
+                role: "user",
+                plan: "free",
+                monthlyQuota: QUOTA_LIMITS.free,
+                usedQuota: 0,
+                dailyCredits: 0,
+                dailyUsedQuota: 0,
+                lastDailyReset: new Date(),
+                createdAt: new Date(),
+                disabled: false,
+              };
+
+              if (isMounted) setUser(appUser);
             }
           }
-        } catch (error) {
-          console.error("Error loading user data:", error);
-          toast.error("Failed to load user data");
+        } else {
+          // User logged out
+          if (isMounted) disconnect();
         }
-      } else {
-        setUser(null);
-        setVerificationHistory([]);
-        setBulkUploads([]);
-        setAllUsers([]);
-        setAllVerifications([]);
-        setPayments([]);
+      } catch (error) {
+        console.error("Error in auth state change handler:", error);
+        if (isMounted) {
+          disconnect();
+          toast.error("An error occurred. Please log in again.");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   // Load verification history from Firestore (per user)
@@ -527,6 +608,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         dailyUsedQuota: 0,
         lastDailyReset: Timestamp.now(),
         createdAt: Timestamp.now(),
+        disabled: false,
       });
 
       toast.success("Account created successfully!");
@@ -535,9 +617,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const errorMessage =
         error.code === "auth/email-already-in-use"
           ? "Email already in use"
-          : error.message || "Failed to create account";
+          : error.code === "auth/weak-password"
+            ? "Password must be at least 6 characters"
+            : error.code === "auth/invalid-email"
+              ? "Invalid email address"
+              : error.message || "Failed to create account";
+      console.error("Signup error:", error.code, error.message);
       toast.error(errorMessage);
-      console.error("Signup error:", error);
       return false;
     }
   };
@@ -617,12 +703,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         if (!adminSnap.exists()) {
           await signOut(auth);
+          disconnect();
           toast.error("Access denied. Admin account not found.");
           return false;
         }
 
-        // Admin account exists and is valid
+        // Check if admin is disabled
+        const adminData = adminSnap.data();
+        if (adminData?.disabled) {
+          await signOut(auth);
+          disconnect();
+          toast.error("Your admin account has been disabled.");
+          return false;
+        }
+
         console.log("Admin login successful for:", userCredential.user.uid);
+      } else {
+        // Check regular user account
+        const userRef = doc(db, "users", userCredential.user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          if (userData?.disabled) {
+            await signOut(auth);
+            disconnect();
+            toast.error(
+              "Your account has been disabled. Please contact support.",
+            );
+            return false;
+          }
+        }
       }
 
       toast.success("Logged in successfully!");
@@ -631,9 +742,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const errorMessage =
         error.code === "auth/invalid-credential"
           ? "Invalid email or password"
-          : error.message || "Failed to login";
+          : error.code === "auth/user-not-found"
+            ? "User not found"
+            : error.code === "auth/wrong-password"
+              ? "Incorrect password"
+              : error.code === "auth/too-many-requests"
+                ? "Too many login attempts. Please try again later."
+                : error.message || "Failed to login";
+
+      console.error("Login error:", error.code, error.message);
       toast.error(errorMessage);
-      console.error("Login error:", error);
       return false;
     }
   };
@@ -661,6 +779,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           dailyUsedQuota: 0,
           lastDailyReset: Timestamp.now(),
           createdAt: Timestamp.now(),
+          disabled: false,
         });
       }
 
@@ -698,16 +817,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     try {
       await signOut(auth);
-      setUser(null);
-      setVerificationHistory([]);
-      setBulkUploads([]);
-      setAllUsers([]);
-      setAllVerifications([]);
-      setPayments([]);
+      disconnect();
       toast.success("Logged out successfully!");
     } catch (error: any) {
-      toast.error(error.message || "Failed to logout");
       console.error("Logout error:", error);
+      toast.error(error.message || "Failed to logout");
+      // Still disconnect even if signOut fails
+      disconnect();
     }
   };
 
@@ -853,6 +969,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const totalEmails = extractedEmails?.length || 0;
 
+      // Check quota upfront
+      const remainingQuota = Math.max(0, user.monthlyQuota - user.usedQuota);
+      if (remainingQuota === 0) {
+        toast.info(
+          "Your monthly quota is fully used. Please wait for the next month or upgrade your plan.",
+        );
+      } else if (totalEmails > remainingQuota) {
+        toast.info(
+          `You have ${remainingQuota} emails remaining in your quota. Only ${remainingQuota} of ${totalEmails} emails will be processed.`,
+        );
+      }
+
       // Create bulk upload document in Firestore (skipping file upload)
       const bulkDocRef = await addDoc(collection(db, "bulkUploads"), {
         filename: file.name,
@@ -909,10 +1037,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const uploadRef = doc(db, "bulkUploads", uploadId);
 
     try {
+      // Calculate remaining quota
+      const remainingQuota = Math.max(0, user.monthlyQuota - user.usedQuota);
+      const emailsToProcess = Math.min(emails.length, remainingQuota);
+
+      // Show warning if user is exceeding their quota
+      if (emails.length > remainingQuota) {
+        if (remainingQuota === 0) {
+          toast.warning(
+            `Your monthly quota is fully used. Please wait for the next month or upgrade your plan.`,
+          );
+        } else {
+          toast.warning(
+            `Your plan allows only ${remainingQuota} emails/month. Processing first ${emailsToProcess} emails of ${emails.length} uploaded.`,
+          );
+        }
+      }
+
       // Update status to processing
       await updateDoc(uploadRef, {
         status: "processing",
         totalEmails: emails.length,
+        quotaLimited: emailsToProcess < emails.length,
       });
 
       let validCount = 0;
@@ -922,8 +1068,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       let unknownCount = 0;
       const verificationResults: EmailVerification[] = [];
 
-      // Process emails in batches
-      for (let i = 0; i < emails.length; i++) {
+      // Process emails in batches (limited by quota)
+      for (let i = 0; i < emailsToProcess; i++) {
         const email = emails[i].trim();
         if (!email) continue;
 
@@ -958,7 +1104,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       // Final update
       await updateDoc(uploadRef, {
         status: "completed",
-        processed: emails.length,
+        processed: emailsToProcess,
         validCount,
         catchAllCount,
         invalidCount,
@@ -974,7 +1120,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             ? {
                 ...upload,
                 status: "completed",
-                processed: emails.length,
+                processed: emailsToProcess,
                 validCount,
                 catchAllCount,
                 invalidCount,
@@ -986,7 +1132,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         ),
       );
 
-      toast.success("Bulk verification completed!");
+      if (emailsToProcess === 0) {
+        toast.error("No emails could be processed due to quota limit.");
+      } else if (emailsToProcess < emails.length) {
+        toast.success(
+          `Bulk verification completed! Processed ${emailsToProcess} of ${emails.length} emails.`,
+        );
+      } else {
+        toast.success("Bulk verification completed!");
+      }
     } catch (error) {
       console.error("Bulk process error:", error);
       await updateDoc(uploadRef, {
@@ -1147,19 +1301,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (updates.plan) {
         // Find the plan in pricingPlans to get its quota and daily credits
         const normalizedPlan = updates.plan.toLowerCase().trim();
-        const planConfig = pricingPlans.find(
-          (p) => p.name.toLowerCase().trim() === normalizedPlan,
-        );
 
-        if (planConfig) {
-          firestoreUpdates.monthlyQuota = planConfig.quota;
-          firestoreUpdates.dailyCredits = planConfig.dailyCredits || 0;
-          firestoreUpdates.dailyUsedQuota = 0; // Reset daily usage
+        if (normalizedPlan === "free") {
+          // Handle free plan
+          firestoreUpdates.monthlyQuota = QUOTA_LIMITS["free"] || 50;
+          firestoreUpdates.dailyCredits = 0;
+          firestoreUpdates.usedQuota = 0;
+          firestoreUpdates.dailyUsedQuota = 0;
           firestoreUpdates.lastDailyReset = Timestamp.now();
         } else {
-          console.warn(
-            `Plan not found in pricing plans: ${updates.plan}. Using existing quota.`,
+          const planConfig = pricingPlans.find(
+            (p) => p.name.toLowerCase().trim() === normalizedPlan,
           );
+
+          if (planConfig) {
+            firestoreUpdates.monthlyQuota = planConfig.quota;
+            firestoreUpdates.dailyCredits = planConfig.dailyCredits || 0;
+            firestoreUpdates.dailyUsedQuota = 0; // Reset daily usage
+            firestoreUpdates.lastDailyReset = Timestamp.now();
+          } else {
+            console.warn(
+              `Plan not found in pricing plans: ${updates.plan}. Using existing quota.`,
+            );
+          }
         }
       }
       const userRef = doc(db, "users", userId);
@@ -1171,14 +1335,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             const newData = { ...u, ...updates };
             if (updates.plan) {
               const normalizedPlan = updates.plan.toLowerCase().trim();
-              const planConfig = pricingPlans.find(
-                (p) => p.name.toLowerCase().trim() === normalizedPlan,
-              );
-              if (planConfig) {
-                newData.monthlyQuota = planConfig.quota;
-                newData.dailyCredits = planConfig.dailyCredits || 0;
+              if (normalizedPlan === "free") {
+                newData.monthlyQuota = QUOTA_LIMITS["free"] || 50;
+                newData.dailyCredits = 0;
+                newData.usedQuota = 0;
                 newData.dailyUsedQuota = 0;
                 newData.lastDailyReset = new Date();
+              } else {
+                const planConfig = pricingPlans.find(
+                  (p) => p.name.toLowerCase().trim() === normalizedPlan,
+                );
+                if (planConfig) {
+                  newData.monthlyQuota = planConfig.quota;
+                  newData.dailyCredits = planConfig.dailyCredits || 0;
+                  newData.dailyUsedQuota = 0;
+                  newData.lastDailyReset = new Date();
+                }
               }
             }
             return newData;

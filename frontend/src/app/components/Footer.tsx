@@ -184,14 +184,34 @@ export const Footer = () => {
           <p className="text-sm text-gray-600">
             © 2026 VerifyMail. All rights reserved.
           </p>
-          <div className="flex items-center gap-2 text-sm text-gray-600 group cursor-pointer">
-            <Mail className="w-4 h-4 group-hover:text-[#2563EB] transition-colors" />
-            <a
-              href="mailto:support@verifymail.com"
-              className="hover:text-[#2563EB] transition-colors"
-            >
-              support@verifymail.com
-            </a>
+          <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2 group cursor-pointer">
+              <Mail className="w-4 h-4 group-hover:text-[#2563EB] transition-colors" />
+              <a
+                href="mailto:support@verifymail.com"
+                className="hover:text-[#2563EB] transition-colors"
+              >
+                support@verifymail.com
+              </a>
+            </div>
+            <div className="hidden sm:block w-0.5 h-4 bg-[#E5E7EB]" />
+            <div className="flex items-center gap-2 group cursor-pointer">
+              <a
+                href="tel:+919876543210"
+                className="hover:text-[#2563EB] transition-colors font-medium"
+              >
+                +91 9876543210
+              </a>
+            </div>
+            <div className="hidden sm:block w-0.5 h-4 bg-[#E5E7EB]" />
+            <div className="flex items-center gap-2 group cursor-pointer">
+              <a
+                href="tel:+919123456789"
+                className="hover:text-[#2563EB] transition-colors font-medium"
+              >
+                +91 9123456789
+              </a>
+            </div>
           </div>
         </div>
       </div>

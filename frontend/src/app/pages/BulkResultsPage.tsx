@@ -122,6 +122,30 @@ export const BulkResultsPage = () => {
         </Button>
       </div>
 
+      {/* Quota Limited Notification */}
+      {upload.quotaLimited && (
+        <Card className="border-l-4 border-l-amber-500 bg-amber-50 border-amber-200">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-900 mb-1">
+                  Quota Limit Applied
+                </h3>
+                <p className="text-sm text-amber-800">
+                  Your plan quota was reached. Only{" "}
+                  <strong>{upload.processed}</strong> of{" "}
+                  <strong>{upload.totalEmails}</strong> emails were processed.
+                  Remaining{" "}
+                  <strong>{upload.totalEmails - upload.processed}</strong>{" "}
+                  emails were not verified. Upgrade your plan to process more
+                  emails.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
         <Card className="border-[#E5E7EB]">
