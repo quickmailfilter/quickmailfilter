@@ -100,6 +100,18 @@ export const DashboardSidebar = ({ onClose }: { onClose?: () => void }) => {
             </Link>
           );
         })}
+
+        {/* Logout Button as Last Menu Item */}
+        <button
+          onClick={() => {
+            if (onClose) onClose();
+            logout();
+          }}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all w-full text-red-600 hover:bg-red-50 font-medium mt-4"
+        >
+          <LogOut className="w-5 h-5" />
+          <span>Logout</span>
+        </button>
       </nav>
 
       {/* Quota Display (for users) */}
@@ -129,20 +141,6 @@ export const DashboardSidebar = ({ onClose }: { onClose?: () => void }) => {
           </div>
         </div>
       )}
-
-      {/* Logout Button */}
-      <div className="mt-auto pt-6 border-t border-[#E5E7EB]">
-        <button
-          onClick={() => {
-            if (onClose) onClose();
-            logout();
-          }}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all w-full text-red-600 hover:bg-red-50 font-medium"
-        >
-          <LogOut className="w-5 h-5" />
-          <span>Logout</span>
-        </button>
-      </div>
     </div>
   );
 };

@@ -389,6 +389,55 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // Set up real-time listener for current user to sync plan and quota changes
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let unsubscribe: (() => void) | null = null;
+
+    const setupUserListener = async () => {
+      try {
+        // Determine which collection to listen to based on user role
+        const collectionName = user.role === "admin" ? "admin" : "users";
+        const userRef = doc(db, collectionName, user.id);
+
+        unsubscribe = onSnapshot(userRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const userData = docSnap.data();
+            setUser((prevUser) => {
+              if (!prevUser) return prevUser;
+
+              return {
+                ...prevUser,
+                name: userData.name || prevUser.name,
+                email: userData.email || prevUser.email,
+                plan: userData.plan || prevUser.plan,
+                monthlyQuota: userData.monthlyQuota ?? prevUser.monthlyQuota,
+                usedQuota: userData.usedQuota ?? prevUser.usedQuota,
+                dailyCredits: userData.dailyCredits ?? prevUser.dailyCredits,
+                dailyUsedQuota:
+                  userData.dailyUsedQuota ?? prevUser.dailyUsedQuota,
+                lastDailyReset:
+                  userData.lastDailyReset?.toDate() || prevUser.lastDailyReset,
+                disabled: userData.disabled ?? prevUser.disabled,
+              };
+            });
+          }
+        });
+      } catch (error) {
+        console.error("Error setting up user listener:", error);
+      }
+    };
+
+    setupUserListener();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [user?.id, user?.role]);
+
   // Load verification history from Firestore (per user)
   const loadVerificationHistory = async (userId: string) => {
     try {
