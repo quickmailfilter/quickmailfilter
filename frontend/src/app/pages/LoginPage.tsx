@@ -15,7 +15,7 @@ import { ShieldCheck, Mail, Lock } from "lucide-react";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { signInWithGoogle, user } = useApp();
+  const { signInWithGoogle, user, login } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -33,7 +33,10 @@ export const LoginPage = () => {
     setLoading(true);
 
     try {
-      // Success case is handled by the useEffect redirect based on user state
+      const success = await login(email, password);
+      if (success) {
+        navigate("/dashboard");
+      }
     } catch (error: any) {
       // Error handled by context
     } finally {
