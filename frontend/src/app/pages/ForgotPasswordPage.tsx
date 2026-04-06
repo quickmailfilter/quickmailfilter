@@ -229,10 +229,12 @@ export const ForgotPasswordPage = () => {
               </div>
 
               {/* Spam folder warning */}
-              <p className="text-xs text-gray-500">
-                If you don't see the email, please check your spam or junk
-                folder
-              </p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>Tip:</strong> If you don't see the email, please check
+                  your spam or junk folder
+                </p>
+              </div>
             </div>
           )}
         </CardContent>
