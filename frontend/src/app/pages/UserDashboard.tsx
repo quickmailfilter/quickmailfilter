@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   TrendingUp,
   MessageCircle,
+  AlertTriangle,
 } from "lucide-react";
 import {
   PieChart,
@@ -178,7 +179,7 @@ export const UserDashboard = () => {
 
       {/* Quick Actions */}
       <div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
         data-aos="fade-up"
         data-aos-delay="300"
       >
@@ -253,6 +254,31 @@ export const UserDashboard = () => {
             </div>
             <div className="mt-auto pt-4 flex items-center text-green-600 font-bold text-sm">
               Contact us <TrendingUp className="w-4 h-4 ml-2" />
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          to="/dashboard/reports"
+          className="group relative overflow-hidden bg-white p-6 sm:p-8 rounded-2xl border border-[#E5E7EB] hover:border-orange-500 shadow-sm hover:shadow-xl transition-all duration-300"
+        >
+          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+            <AlertTriangle className="w-24 h-24 text-orange-600" />
+          </div>
+          <div className="relative z-10 flex flex-col h-full gap-4">
+            <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-[#1E3A8A] mb-1">
+                View Reports
+              </h3>
+              <p className="text-gray-500 text-sm">
+                Check for any reports made about your account.
+              </p>
+            </div>
+            <div className="mt-auto pt-4 flex items-center text-orange-600 font-bold text-sm">
+              View reports <TrendingUp className="w-4 h-4 ml-2" />
             </div>
           </div>
         </Link>

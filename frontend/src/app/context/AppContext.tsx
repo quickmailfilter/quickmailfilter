@@ -16,6 +16,7 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import {
   collection,
@@ -124,6 +125,22 @@ export interface BulkUpload {
   quotaLimited?: boolean;
 }
 
+export interface UserReport {
+  id: string;
+  reportedUserId: string;
+  reportedUserName: string;
+  reportedUserEmail: string;
+  reportedBy: string; // admin id
+  reportedByName: string;
+  reason: string;
+  description: string;
+  status: "open" | "closed" | "investigating";
+  severity: "low" | "medium" | "high";
+  createdAt: Date;
+  resolvedAt?: Date;
+  resolution?: string;
+}
+
 interface AppContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -178,6 +195,21 @@ interface AppContextType {
     updates: Partial<Pick<User, "plan" | "role" | "disabled">>,
   ) => Promise<boolean>;
   resetQuota: (userId: string) => Promise<boolean>;
+  allReports: UserReport[];
+  createUserReport: (
+    reportedUserId: string,
+    reason: string,
+    description: string,
+    severity: "low" | "medium" | "high",
+  ) => Promise<boolean>;
+  updateReportStatus: (
+    reportId: string,
+    status: "open" | "closed" | "investigating",
+    resolution?: string,
+  ) => Promise<boolean>;
+  sendPasswordResetEmail: (
+    email: string,
+  ) => Promise<{ success: boolean; message: string }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -203,6 +235,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   );
   const [payments, setPayments] = useState<Payment[]>([]);
   const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+  const [allReports, setAllReports] = useState<UserReport[]>([]);
 
   // Listen to pricing plans globally
   useEffect(() => {
@@ -214,6 +247,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       });
       console.log("Pricing plans updated:", plansArray);
       setPricingPlans(plansArray);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Listen to user reports
+  useEffect(() => {
+    const q = query(
+      collection(db, "userReports"),
+      orderBy("createdAt", "desc"),
+    );
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const reportsArray: UserReport[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        reportsArray.push({
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          resolvedAt: data.resolvedAt?.toDate(),
+        } as UserReport);
+      });
+      setAllReports(reportsArray);
     });
     return () => unsubscribe();
   }, []);
@@ -1432,6 +1487,124 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const createUserReport = async (
+    reportedUserId: string,
+    reason: string,
+    description: string,
+    severity: "low" | "medium" | "high",
+  ): Promise<boolean> => {
+    try {
+      if (!user) {
+        toast.error("You must be logged in to create a report");
+        return false;
+      }
+
+      const reportedUser = allUsers.find((u) => u.id === reportedUserId);
+      if (!reportedUser) {
+        toast.error("User not found");
+        return false;
+      }
+
+      await addDoc(collection(db, "userReports"), {
+        reportedUserId,
+        reportedUserName: reportedUser.name,
+        reportedUserEmail: reportedUser.email,
+        reportedBy: user.id,
+        reportedByName: user.name,
+        reason,
+        description,
+        severity,
+        status: "open",
+        createdAt: serverTimestamp(),
+      });
+
+      toast.success("Report created successfully!");
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create report");
+      return false;
+    }
+  };
+
+  const updateReportStatus = async (
+    reportId: string,
+    status: "open" | "closed" | "investigating",
+    resolution?: string,
+  ): Promise<boolean> => {
+    try {
+      const reportRef = doc(db, "userReports", reportId);
+      const updateData: Partial<UserReport> = { status };
+      if (resolution) {
+        updateData.resolution = resolution;
+        updateData.resolvedAt = new Date();
+      }
+
+      await updateDoc(reportRef, updateData);
+
+      toast.success("Report status updated successfully!");
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update report status");
+      return false;
+    }
+  };
+
+  const sendPasswordResetEmailHandler = async (
+    email: string,
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      // Validate email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return {
+          success: false,
+          message: "Please enter a valid email address",
+        };
+      }
+
+      // Send password reset email with custom URL
+      await sendPasswordResetEmail(auth, email, {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: false,
+      });
+
+      console.log(`Password reset email sent to ${email}`);
+      return {
+        success: true,
+        message: "Password reset email sent successfully!",
+      };
+    } catch (error: any) {
+      let errorMsg = "Failed to send password reset email";
+
+      switch (error.code) {
+        case "auth/user-not-found":
+          errorMsg =
+            "No account found with this email address. Please check and try again.";
+          break;
+        case "auth/invalid-email":
+          errorMsg = "Invalid email address format";
+          break;
+        case "auth/too-many-requests":
+          errorMsg =
+            "Too many reset requests. Please try again later or contact support.";
+          break;
+        case "auth/operation-not-allowed":
+          errorMsg = "Password reset is not enabled. Please contact support.";
+          break;
+        default:
+          if (error.message) {
+            errorMsg = error.message;
+          }
+      }
+
+      console.error("Password reset error:", error);
+      return {
+        success: false,
+        message: errorMsg,
+      };
+    }
+  };
+
   const addPricingPlan = async (
     plan: Omit<PricingPlan, "id">,
   ): Promise<boolean> => {
@@ -1504,6 +1677,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     upgradePlan,
     adminUpdateUser,
     resetQuota,
+    allReports,
+    createUserReport,
+    updateReportStatus,
+    sendPasswordResetEmail: sendPasswordResetEmailHandler,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

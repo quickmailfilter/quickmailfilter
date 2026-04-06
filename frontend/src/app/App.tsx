@@ -28,6 +28,7 @@ import { CareersPage } from "./pages/CareersPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { TermsOfServicePage } from "./pages/TermsOfServicePage";
 import { CookiePolicyPage } from "./pages/CookiePolicyPage";
@@ -42,6 +43,7 @@ import { BulkResultsPage } from "./pages/BulkResultsPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { MyPlanPage } from "./pages/MyPlanPage";
 import { UserSettingsPage } from "./pages/UserSettingsPage";
+import { UserReportsPage } from "./pages/UserReportsPage";
 import { PaymentSuccessPage } from "./pages/PaymentSuccessPage";
 
 // Admin Pages
@@ -52,6 +54,7 @@ import { AdminLogsPage } from "./pages/AdminLogsPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
 import { AdminFileManagerPage } from "./pages/AdminFileManagerPage";
 import { AdminContactSubmissionsPage } from "./pages/AdminContactSubmissionsPage";
+import { AdminReportsPage } from "./pages/AdminReportsPage";
 
 // Loading component
 const LoadingScreen = () => (
@@ -267,6 +270,14 @@ function AppContent() {
             </PublicLayout>
           }
         />
+        <Route
+          path="/reset-password"
+          element={
+            <PublicLayout>
+              <ResetPasswordPage />
+            </PublicLayout>
+          }
+        />
 
         {/* User Dashboard Routes */}
         <Route
@@ -349,6 +360,16 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/dashboard/reports"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <UserReportsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin Routes */}
         <Route
@@ -375,6 +396,16 @@ function AppContent() {
             <AdminRoute>
               <DashboardLayout>
                 <AdminUsersPage />
+              </DashboardLayout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/reports"
+          element={
+            <AdminRoute>
+              <DashboardLayout>
+                <AdminReportsPage />
               </DashboardLayout>
             </AdminRoute>
           }

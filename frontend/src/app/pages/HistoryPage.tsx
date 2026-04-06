@@ -142,6 +142,35 @@ export const HistoryPage = () => {
     toast.success("Email copied to clipboard");
   };
 
+  const handleDownloadReport = (item: any) => {
+    // Create a detailed verification report
+    const report = {
+      email: item.email,
+      status: item.status,
+      confidence: item.confidence,
+      reason: item.reason || "No issues detected",
+      formatValid: item.formatValid,
+      domainExists: item.domainExists,
+      mxRecordFound: item.mxRecordFound,
+      disposable: item.disposable,
+      roleBased: item.roleBased,
+      catchAll: item.catchAll,
+      verifiedAt: item.timestamp.toLocaleString(),
+      reportGeneratedAt: new Date().toLocaleString(),
+    };
+
+    // Create JSON report
+    const jsonReport = JSON.stringify(report, null, 2);
+    const blob = new Blob([jsonReport], { type: "application/json" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `verification-report-${item.email}-${new Date().toISOString().split("T")[0]}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    toast.success("Report downloaded successfully!");
+  };
+
   const toggleSort = (column: "date" | "status" | "confidence") => {
     if (sortBy === column) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -526,13 +555,22 @@ export const HistoryPage = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <button
-                            onClick={() => handleCopyEmail(item.email)}
-                            className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-gray-600 hover:text-blue-600"
-                            title="Copy email"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleCopyEmail(item.email)}
+                              className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-gray-600 hover:text-blue-600"
+                              title="Copy email"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDownloadReport(item)}
+                              className="p-2 hover:bg-green-100 rounded-lg transition-colors text-gray-600 hover:text-green-600"
+                              title="Download report"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

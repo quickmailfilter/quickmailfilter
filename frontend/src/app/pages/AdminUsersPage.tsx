@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -32,14 +33,35 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../components/ui/dialog";
-import { Search, UserCog, Ban, Crown, CheckCircle2, Zap } from "lucide-react";
+import {
+  Search,
+  UserCog,
+  Ban,
+  Crown,
+  CheckCircle2,
+  Zap,
+  AlertCircle,
+} from "lucide-react";
 
 export const AdminUsersPage = () => {
-  const { allUsers, adminUpdateUser, resetQuota, pricingPlans } = useApp();
+  const {
+    allUsers,
+    adminUpdateUser,
+    resetQuota,
+    pricingPlans,
+    createUserReport,
+  } = useApp();
   const [searchTerm, setSearchTerm] = useState("");
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportingUserId, setReportingUserId] = useState<string | null>(null);
+  const [reportData, setReportData] = useState({
+    reason: "",
+    description: "",
+    severity: "medium" as "low" | "medium" | "high",
+  });
 
   // Get active plans for display
   const activePlans = useMemo(
@@ -56,19 +78,6 @@ export const AdminUsersPage = () => {
   };
 
   // Helper function to get the proper plan display name and object
-  const getPlanDisplayInfo = (planName: string | null | undefined) => {
-    if (!planName || planName === "free") {
-      return { name: "Free", object: null };
-    }
-    const plan = activePlans.find((p) => p.name === planName);
-    if (plan) {
-      return { name: plan.name, object: plan };
-    }
-    return {
-      name: planName.charAt(0).toUpperCase() + planName.slice(1),
-      object: null,
-    };
-  };
 
   // Helper function to get the full plan display (with price and credits)
   const getFullPlanDisplay = (planName: string | null | undefined) => {
@@ -174,6 +183,30 @@ export const AdminUsersPage = () => {
     setActionLoading(true);
     await resetQuota(userId);
     setActionLoading(false);
+  };
+
+  const handleSubmitReport = async () => {
+    if (
+      !reportingUserId ||
+      !reportData.reason.trim() ||
+      !reportData.description.trim()
+    ) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    setActionLoading(true);
+    const success = await createUserReport(
+      reportingUserId,
+      reportData.reason,
+      reportData.description,
+      reportData.severity,
+    );
+    setActionLoading(false);
+    if (success) {
+      setReportDialogOpen(false);
+      setReportingUserId(null);
+      setReportData({ reason: "", description: "", severity: "medium" });
+    }
   };
 
   return (
@@ -613,6 +646,139 @@ export const AdminUsersPage = () => {
                                     </>
                                   )}
                                 </Button>
+                                <Dialog
+                                  open={
+                                    reportDialogOpen &&
+                                    reportingUserId === user.id
+                                  }
+                                  onOpenChange={(open) => {
+                                    setReportDialogOpen(open);
+                                    if (!open) setReportingUserId(null);
+                                  }}
+                                >
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className="flex-1 h-9 text-sm border-orange-300 text-orange-700 hover:bg-orange-50"
+                                      onClick={() =>
+                                        setReportingUserId(user.id)
+                                      }
+                                    >
+                                      <AlertCircle className="w-3.5 h-3.5 mr-1.5" />
+                                      Report
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="w-full max-w-md">
+                                    <DialogHeader>
+                                      <DialogTitle>Report User</DialogTitle>
+                                      <DialogDescription>
+                                        Report {user.name} for violation or
+                                        misuse
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                      <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-700">
+                                          Reason
+                                        </label>
+                                        <Select
+                                          value={reportData.reason}
+                                          onValueChange={(value) =>
+                                            setReportData({
+                                              ...reportData,
+                                              reason: value,
+                                            })
+                                          }
+                                        >
+                                          <SelectTrigger className="h-9 text-sm">
+                                            <SelectValue placeholder="Select reason..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="spam">
+                                              Spam
+                                            </SelectItem>
+                                            <SelectItem value="abuse">
+                                              Abuse
+                                            </SelectItem>
+                                            <SelectItem value="fraud">
+                                              Fraud
+                                            </SelectItem>
+                                            <SelectItem value="policy_violation">
+                                              Policy Violation
+                                            </SelectItem>
+                                            <SelectItem value="other">
+                                              Other
+                                            </SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-700">
+                                          Severity
+                                        </label>
+                                        <Select
+                                          value={reportData.severity}
+                                          onValueChange={(value: any) =>
+                                            setReportData({
+                                              ...reportData,
+                                              severity: value,
+                                            })
+                                          }
+                                        >
+                                          <SelectTrigger className="h-9 text-sm">
+                                            <SelectValue placeholder="Select severity..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="low">
+                                              Low
+                                            </SelectItem>
+                                            <SelectItem value="medium">
+                                              Medium
+                                            </SelectItem>
+                                            <SelectItem value="high">
+                                              High
+                                            </SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-700">
+                                          Description
+                                        </label>
+                                        <textarea
+                                          placeholder="Describe the issue in detail..."
+                                          value={reportData.description}
+                                          onChange={(e) =>
+                                            setReportData({
+                                              ...reportData,
+                                              description: e.target.value,
+                                            })
+                                          }
+                                          className="w-full min-h-32 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                        />
+                                      </div>
+                                      <div className="flex gap-2 pt-4">
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => {
+                                            setReportDialogOpen(false);
+                                            setReportingUserId(null);
+                                          }}
+                                          disabled={actionLoading}
+                                        >
+                                          Cancel
+                                        </Button>
+                                        <Button
+                                          className="bg-orange-600 hover:bg-orange-700 text-white flex-1"
+                                          onClick={handleSubmitReport}
+                                          disabled={actionLoading}
+                                        >
+                                          Submit Report
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
                               </div>
                             </div>
                           </DialogContent>
