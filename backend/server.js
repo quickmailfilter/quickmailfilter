@@ -78,9 +78,12 @@ app.use(cors(corsOptions));
 
 // Security Headers - Fix Cross-Origin-Opener-Policy and other security concerns
 app.use((req, res, next) => {
-  // Allow window.closed and cross-origin interactions
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
-  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+  // Allow Firebase and Razorpay popups to work correctly
+  // Note: Removed strict COOP to allow window.closed checks from cross-origin frames (Firebase, Razorpay)
+  // This is safe because we handle CORS separately
+
+  // res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  // res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
 
   // Additional security headers
   res.setHeader("X-Content-Type-Options", "nosniff");
