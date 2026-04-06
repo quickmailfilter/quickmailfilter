@@ -55,6 +55,39 @@ export const AdminUsersPage = () => {
     return planExists ? plan : "free";
   };
 
+  // Helper function to get the proper plan display name and object
+  const getPlanDisplayInfo = (planName: string | null | undefined) => {
+    if (!planName || planName === "free") {
+      return { name: "Free", object: null };
+    }
+    const plan = activePlans.find((p) => p.name === planName);
+    if (plan) {
+      return { name: plan.name, object: plan };
+    }
+    return {
+      name: planName.charAt(0).toUpperCase() + planName.slice(1),
+      object: null,
+    };
+  };
+
+  // Helper function to get the full plan display (with price and credits)
+  const getFullPlanDisplay = (planName: string | null | undefined) => {
+    if (!planName || planName === "free") {
+      return "Free Plan";
+    }
+    const plan = activePlans.find((p) => p.name === planName);
+    if (plan) {
+      let creditsDisplay = "";
+      if (plan.planType === "subscription" && plan.dailyCredits) {
+        creditsDisplay = `(${plan.dailyCredits}/day)`;
+      } else if (plan.planType === "onetime" && plan.creditAmount) {
+        creditsDisplay = `(${plan.creditAmount})`;
+      }
+      return `${plan.name} - ₹${plan.price} ${creditsDisplay} (${plan.quota})`.trim();
+    }
+    return planName;
+  };
+
   // Calculate plan distribution for stats
   const planStats = useMemo(() => {
     const stats: Record<string, number> = { free: 0 };
@@ -277,12 +310,9 @@ export const AdminUsersPage = () => {
                               : "border-blue-300 text-blue-700 bg-blue-50"
                           }
                         >
-                          {getUserPlanStatus(user.plan) === "free"
-                            ? "Free"
-                            : getUserPlanStatus(user.plan)
-                                .charAt(0)
-                                .toUpperCase() +
-                              getUserPlanStatus(user.plan).slice(1)}
+                          <span className="truncate max-w-xs">
+                            {getFullPlanDisplay(user.plan)}
+                          </span>
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -374,12 +404,9 @@ export const AdminUsersPage = () => {
                                       Plan:
                                     </span>
                                     <Badge className="bg-blue-600 text-white text-xs">
-                                      {getUserPlanStatus(user.plan) === "free"
-                                        ? "Free"
-                                        : getUserPlanStatus(user.plan)
-                                            .charAt(0)
-                                            .toUpperCase() +
-                                          getUserPlanStatus(user.plan).slice(1)}
+                                      <span className="truncate max-w-xs">
+                                        {getFullPlanDisplay(user.plan)}
+                                      </span>
                                     </Badge>
                                   </div>
                                   {user.monthlyQuota > 0 && (
