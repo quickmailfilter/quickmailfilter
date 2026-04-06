@@ -76,6 +76,24 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Security Headers - Fix Cross-Origin-Opener-Policy and other security concerns
+app.use((req, res, next) => {
+  // Allow window.closed and cross-origin interactions
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+
+  // Additional security headers
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  // For payment gateway compatibility
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  next();
+});
+
 // ========== RAZORPAY SERVICE INITIALIZATION ==========
 
 const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
