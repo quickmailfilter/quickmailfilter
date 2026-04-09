@@ -990,12 +990,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         id: `ver-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
         email,
         status: emailStatus,
+        // Use validators object for accurate representation of what passed/failed
         formatValid: validatorResult.validators?.regex?.valid ?? true,
-        domainExists: !!validatorResult.mx_record,
-        mxRecordFound: !!validatorResult.mx_record,
-        disposable: !!validatorResult.disposable,
-        roleBased: !!validatorResult.role,
-        catchAll: !!validatorResult.accept_all,
+        domainExists: validatorResult.validators?.mx?.valid ?? false,
+        mxRecordFound: validatorResult.validators?.mx?.valid ?? false,
+        disposable:
+          validatorResult.disposable ||
+          !validatorResult.validators?.disposable?.valid,
+        roleBased: !!validatorResult.role, // Role detection isn't a validator, just a flag
+        catchAll:
+          validatorResult.validators?.smtp?.valid === false
+            ? false // If SMTP failed, it's not a catch-all
+            : !!validatorResult.accept_all, // Otherwise, use the actual accept_all flag
         reason: emailReason,
         confidence: validatorResult.security_score ?? 75,
         timestamp: new Date(),

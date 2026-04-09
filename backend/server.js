@@ -67,8 +67,37 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // CORS - Allow API calls from authorized origins
+// In development, allow localhost; in production, use environment variable
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173", // Vite dev server
+  "http://localhost:5174", // Vite dev server (alternative port)
+  "http://127.0.0.1:5173", // Localhost alternative
+  "http://127.0.0.1:3000", // Localhost alternative
+];
+
+// Add production domain if configured
+if (process.env.CORS_ORIGIN && process.env.CORS_ORIGIN !== "*") {
+  allowedOrigins.push(process.env.CORS_ORIGIN);
+}
+
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || "*",
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else if (NODE_ENV === "development") {
+      // In development, log but allow unknown origins
+      console.warn(`⚠️  CORS: Unknown origin attempted: ${origin}`);
+      callback(null, true);
+    } else {
+      // In production, block unknown origins
+      callback(new Error("CORS: Origin not allowed"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
