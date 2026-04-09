@@ -992,7 +992,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         status: emailStatus,
         // Use validators object for accurate representation of what passed/failed
         formatValid: validatorResult.validators?.regex?.valid ?? true,
-        domainExists: validatorResult.validators?.mx?.valid ?? false,
+        domainExists:
+          validatorResult.validators?.smtp?.valid ??
+          validatorResult.smtpVerified ??
+          false,
         mxRecordFound: validatorResult.validators?.mx?.valid ?? false,
         disposable:
           validatorResult.disposable ||
