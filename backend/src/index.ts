@@ -652,6 +652,27 @@ export async function validate(
 
         // Return result based on SMTP validation
         if (!smtpResult.valid) {
+          // Check if this is a DEFINITIVE failure (mailbox doesn't exist)
+          if (smtpResult.definitive) {
+            // SMTP gave us a definitive answer - MUST reject the email
+            // Don't fall back to multi-factor validation
+            console.log(
+              "❌ [SMTP DEFINITIVE] Mailbox does not exist - REJECTING email (not using multi-factor fallback)",
+            );
+            enrichedData.smtpVerified = false;
+            enrichedData.smtpBlocked = false; // This is NOT a block, it's a hard reject
+            enrichedData.smtp_error = smtpResult.reason;
+            enrichedData.security_score = 0; // Score is 0 - email is definitely invalid
+            enrichedData.domainStatus = "invalid";
+
+            return createOutput(
+              "smtp",
+              "Mailbox does not exist (SMTP verification)",
+              enrichedData,
+            );
+          }
+
+          // SMTP failed but not definitively (blocked, timeout, etc) - fall through to multi-factor
           // SMTP FAILED - but don't return early!
           // Set flags and fall through to multi-factor validation
           console.log(
