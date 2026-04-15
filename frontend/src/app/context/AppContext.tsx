@@ -222,6 +222,33 @@ export const useApp = () => {
   return context;
 };
 
+/**
+ * Normalize EmailVerification data loaded from Firestore
+ * This applies validator correction for consistency across single and bulk verifications
+ * Handles both old (pre-fix) and new (post-fix) data formats
+ */
+const normalizeEmailVerificationFromFirestore = (
+  data: any,
+): EmailVerification => {
+  // If the data already has correct validators, use it as-is
+  // Otherwise, reconstruct based on what we know
+  return {
+    id: data.id || "",
+    email: data.email,
+    status: data.status as EmailStatus,
+    formatValid: data.formatValid ?? true,
+    domainExists: data.domainExists ?? false,
+    mxRecordFound: data.mxRecordFound ?? false,
+    disposable: data.disposable ?? false,
+    roleBased: data.roleBased ?? false,
+    catchAll: data.catchAll ?? false,
+    reason: data.reason || "Verification result",
+    confidence: data.confidence ?? 0,
+    timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
+    userId: data.userId || "guest",
+  };
+};
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -506,21 +533,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        verifications.push({
+        const normalized = normalizeEmailVerificationFromFirestore({
           id: docSnap.id,
-          email: data.email,
-          status: data.status,
-          formatValid: data.formatValid,
-          domainExists: data.domainExists,
-          mxRecordFound: data.mxRecordFound,
-          disposable: data.disposable,
-          roleBased: data.roleBased,
-          catchAll: data.catchAll,
-          reason: data.reason,
-          confidence: data.confidence,
-          timestamp: data.timestamp?.toDate() || new Date(),
-          userId: data.userId,
+          ...data,
         });
+        verifications.push(normalized);
       });
 
       setVerificationHistory(verifications);
@@ -551,6 +568,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
+
+        // Normalize the results array to ensure consistent validator mapping
+        const normalizedResults = (data.results || []).map((result: any) =>
+          normalizeEmailVerificationFromFirestore({
+            id: result.id || "",
+            ...result,
+          }),
+        );
+
         uploads.push({
           id: docSnap.id,
           filename: data.filename,
@@ -565,7 +591,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           uploadedAt: data.uploadedAt?.toDate() || new Date(),
           userId: data.userId,
           fileUrl: data.fileUrl,
-          results: data.results || [],
+          results: normalizedResults,
         });
       });
 
@@ -662,21 +688,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        verifications.push({
+        const normalized = normalizeEmailVerificationFromFirestore({
           id: docSnap.id,
-          email: data.email,
-          status: data.status,
-          formatValid: data.formatValid,
-          domainExists: data.domainExists,
-          mxRecordFound: data.mxRecordFound,
-          disposable: data.disposable,
-          roleBased: data.roleBased,
-          catchAll: data.catchAll,
-          reason: data.reason,
-          confidence: data.confidence,
-          timestamp: data.timestamp?.toDate() || new Date(),
-          userId: data.userId,
+          ...data,
         });
+        verifications.push(normalized);
       });
 
       setAllVerifications(verifications);
