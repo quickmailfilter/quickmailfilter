@@ -95,12 +95,14 @@ export const VerificationResult: React.FC<VerificationResultProps> = ({
           </div>
           <p className="text-sm sm:text-base leading-relaxed font-medium">
             {result.status === "valid"
-              ? "Excellent! This inbox is active and ready to receive mail. Zero bounce risk detected."
+              ? result.confidence >= 95
+                ? "Excellent! Mailbox confirmed active via SMTP handshake. Zero bounce risk."
+                : `Validated with ${result.confidence}% confidence via domain signals (MX + DNS + reputation). Enterprise mail servers block SMTP probing — this is the industry-standard validation method.`
               : result.status === "catch-all"
-                ? "This domain accepts all addresses. Email will deliver but mailbox may not be monitored."
+                ? "This domain accepts all email addresses regardless of whether the mailbox exists. Proceed with caution — expect higher bounce rates."
                 : result.status === "risky"
-                  ? "Warning: Limited verification signals. This address may bounce or be inactive."
-                  : "Attention: This address is dead or malformed. Sending will hurt your reputation."}
+                  ? "Warning: Limited domain signals. Confidence is too low to confirm deliverability. Validate carefully before sending."
+                  : "This address is invalid — malformed format or domain does not accept email. Do not send."}
           </p>
         </div>
       </div>

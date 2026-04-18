@@ -1,7 +1,12 @@
 import { isEmail } from "./regex/regex";
 import { checkTypo } from "./typo/typo";
 import { getBestMx } from "./dns/dns";
-import { checkSMTP, checkCatchAll, isBlockingService } from "./smtp/smtp";
+import {
+  checkSMTP,
+  checkCatchAll,
+  isBlockingService,
+  isCatchAllGateway,
+} from "./smtp/smtp";
 import { checkDisposable } from "./disposable/disposable";
 import { getOptions, ValidatorOptions } from "./options/options";
 import { OutputFormat, createOutput } from "./output/output";
@@ -207,6 +212,13 @@ function calculateDeliverabilityScore(data: any): number {
   }
 
   // ===== ENSURE VALID RANGE =====
+  // CRITICAL: Without actual SMTP verification we cannot guarantee a mailbox exists.
+  // Cap confidence at 82 when SMTP was not completed successfully.
+  // This prevents false 100% scores from DNS signals alone.
+  if (!data.smtpVerified) {
+    score = Math.min(score, 82);
+  }
+
   return Math.max(0, Math.min(100, score));
 }
 
@@ -608,17 +620,53 @@ export async function validate(
         enrichedData.dmarc = false;
       }
 
-      // Step 8: Check for mail protection services
+      // Step 8: Classify the MX server type
       const isMailProtected = isBlockingService(mx.exchange);
+      const isCatchAllMX = isCatchAllGateway(mx.exchange);
 
-      // Step 9: SMTP verification (optional, only for non-protected domains)
+      if (isCatchAllMX) {
+        // TRUE CATCH-ALL GATEWAY (O365, Proofpoint, Mimecast, etc.)
+        // These services accept ALL mail at the SMTP relay level and route/filter
+        // internally. Regardless of whether we can connect on port 25, the RCPT TO
+        // response will always be 250 — making individual mailbox verification
+        // impossible. Industry standard is to classify these as "catch-all".
+        console.log(
+          "🔵 [CATCH-ALL GATEWAY]",
+          mx.exchange,
+          "— accepts all mail at relay level. Marking as catch-all without SMTP attempt.",
+        );
+        enrichedData.accept_all = true;
+        enrichedData.smtpBlocked = true;
+        enrichedData.smtpVerified = false;
+        enrichedData.smtp_skipped_reason = `Catch-all relay gateway: ${mx.exchange} accepts all addresses at SMTP level`;
+      } else if (isMailProtected) {
+        console.log(
+          "🛡️  [SMTP BLOCKER]",
+          mx.exchange,
+          "— blocks external probing. SMTP attempted but will likely fail.",
+        );
+      }
+
+      // Step 9: SMTP verification — skip entirely for known catch-all gateways
       // Skip SMTP on Railway (port 25 is blocked)
       const isOnRailway =
         process.env.RAILWAY_ENVIRONMENT_NAME ||
         process.env.RAILWAY_PUBLIC_DOMAIN;
-      if (options.validateSMTP && !isOnRailway) {
-        console.log("🔄 [SMTP] Starting SMTP verification...");
-        const smtpResult = await checkSMTP(options.sender, email, mx.exchange);
+      if (options.validateSMTP && !isOnRailway && !isCatchAllMX) {
+        console.log("🔄 [SMTP] Starting SMTP verification on port 25...");
+        let smtpResult = await checkSMTP(
+          options.sender,
+          email,
+          mx.exchange,
+          25,
+        );
+
+        // If port 25 was outright refused (ECONNREFUSED), try port 587 as fallback.
+        // Some networks block port 25 outbound but allow port 587.
+        if (smtpResult.portRefused) {
+          console.log("⚠️  [SMTP] Port 25 refused — retrying on port 587...");
+          smtpResult = await checkSMTP(options.sender, email, mx.exchange, 587);
+        }
 
         // Extract SMTP-specific data
         enrichedData.smtpVerified = smtpResult.valid && !smtpResult.blocked;
@@ -632,6 +680,17 @@ export async function validate(
           "| Reason:",
           smtpResult.reason,
         );
+
+        // Note: enterprise mail gateways (Mimecast, Proofpoint, O365) block SMTP
+        // verification probes — this does NOT mean the domain is catch-all.
+        // Catch-all specifically means the server accepts ANY address including fake
+        // ones. These are different concepts. Fall through to multi-factor scoring.
+        if (smtpResult.blocked && isMailProtected) {
+          enrichedData.smtp_skipped_reason = `Enterprise mail gateway (${mx.exchange}) blocks SMTP verification — validated via domain signals`;
+          console.log(
+            "🛡️  [SMTP] Enterprise gateway blocked probe — using multi-factor domain validation",
+          );
+        }
 
         // Check for catch-all if SMTP passed and not blocked
         if (smtpResult.valid && !enrichedData.smtpBlocked) {
@@ -780,15 +839,22 @@ export async function validate(
             },
           };
         }
-      } else if (isOnRailway && options.validateSMTP) {
-        // SMTP validation requested but skipped on Railway - use DNS/MX validation only
-        console.log(
-          "⚠️ [SMTP] Skipped on Railway (port 25 blocked) - using DNS/MX validation only",
-        );
-        enrichedData.smtpVerified = false;
-        enrichedData.smtpBlocked = true;
-        enrichedData.smtp_skipped_reason =
-          "Port 25 blocked on Railway platform";
+      } else if ((isOnRailway && options.validateSMTP) || isCatchAllMX) {
+        // SMTP skipped: either Railway blocks port 25, or domain is a catch-all gateway.
+        // catch-all gateways already have accept_all=true set above.
+        if (isOnRailway) {
+          console.log(
+            "⚠️ [SMTP] Skipped on Railway (port 25 blocked) - using DNS/MX validation only",
+          );
+          enrichedData.smtpVerified = false;
+          enrichedData.smtpBlocked = true;
+          enrichedData.smtp_skipped_reason =
+            "Port 25 blocked on Railway platform";
+        } else {
+          console.log(
+            "🔵 [SMTP] Skipped — catch-all gateway already classified",
+          );
+        }
 
         // For Railway and blocked SMTP: Perform breach check for valid patterns
         try {

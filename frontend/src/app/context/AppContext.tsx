@@ -970,16 +970,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       // Map validator result to our EmailVerification format
       // Use logical defaults to avoid 'undefined' values which Firebase rejects
       const securityScore = validatorResult.security_score ?? 75;
+      const smtpVerified = validatorResult.smtpVerified === true;
+      const smtpBlocked = validatorResult.smtpBlocked === true;
+
       const isExplicitlyRisky = ["risky", "suspicious", "compromised"].includes(
         validatorResult.domainStatus,
       );
-      // Classify: risky = low confidence (<70), catch-all = accept-all domain
+
+      // Catch-all: server explicitly accepted a fake address during SMTP probe,
+      // meaning it accepts ALL addresses regardless of whether a mailbox exists.
+      // Enterprise gateways that BLOCK probes are NOT catch-all — different concept.
+      const isCatchAll =
+        validatorResult.valid && validatorResult.accept_all === true;
+
+      // Risky: explicitly flagged by domain reputation/disposable checks,
+      // OR the multi-factor confidence score is below the threshold.
+      // A score ≥ 70 means strong domain signals (MX + DNS records + reputation)
+      // even when SMTP is unavailable — this is the industry-standard approach
+      // used by ZeroBounce, NeverBounce, and Hunter.io for enterprise domains.
       const isRisky =
         isExplicitlyRisky || (validatorResult.valid && securityScore < 70);
-      const isCatchAll =
-        validatorResult.valid &&
-        !isRisky &&
-        validatorResult.accept_all === true;
 
       const emailStatus: EmailStatus = !validatorResult.valid
         ? isExplicitlyRisky
@@ -997,10 +1007,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           ? `${validatorResult.reason}: ${validatorResult.validators[validatorResult.reason].reason}`
           : "Verification failed"
         : isRisky
-          ? `Low confidence (${securityScore}%): limited domain signals`
+          ? `Low confidence (${securityScore}%): limited domain signals — verify before sending`
           : isCatchAll
-            ? "Accept-all domain: mailbox existence unverifiable"
-            : "All checks passed";
+            ? "Accept-all domain: server accepts any address, individual mailbox existence unverifiable"
+            : smtpBlocked && !smtpVerified
+              ? `Validated via domain signals (${securityScore}% confidence) — enterprise mail server`
+              : "All checks passed";
 
       const verification: EmailVerification = {
         id: `ver-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,

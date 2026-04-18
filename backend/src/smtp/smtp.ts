@@ -37,22 +37,59 @@ const SMTP_CODES = {
   504: "parameter_not_implemented",
 };
 
-// Known enterprise mail protection services that block SMTP verification
-const BLOCKING_SERVICES = [
-  "mimecast.com",
-  "protection.outlook.com",
-  "pphosted.com",
-  "proofpoint.com",
-  "messagelabs.com",
+// TRUE CATCH-ALL GATEWAYS: These services accept ALL mail at SMTP relay level
+// and filter internally. Even with a working port-25 connection you CANNOT verify
+// individual mailbox existence — the RCPT TO will always return 250.
+// Industry standard (ZeroBounce, NeverBounce, Hunter.io) classifies domains
+// using these gateways as "catch-all".
+const CATCH_ALL_GATEWAYS = [
+  "mail.protection.outlook.com", // Microsoft 365
+  "pphosted.com", // Proofpoint
+  "mimecast.com", // Mimecast
+  "messagelabs.com", // Symantec/Broadcom MessageLabs
+  "mailcontrol.com", // Forcepoint MailControl
+  "iphmx.com", // Cisco IronPort hosted
+  "hydramail.net", // Trend Micro IMSVA hosted
+  "reflexion.net", // Reflexion Networks
+  "spamexperts.com", // SpamExperts
+];
+
+// SMTP RATE-LIMITERS / BLOCKERS: These services block external SMTP probing
+// but do NOT catch-all — they will reject 550 for non-existent mailboxes
+// when probed from whitelisted IPs. Since we cannot connect (port 25 outbound
+// blocked on cloud hosting), we fall back to domain/DNS signal scoring.
+const SMTP_BLOCKERS = [
   "google.com",
   "googlemail.com",
   "barracuda",
-  "spamexperts",
-  "mailcontrol",
-  "reflexion",
-  "symantec",
+  "barracudanetworks.com",
+  "sophos",
   "fireeye",
+  "trendmicro",
+  "cisco",
+  "ironport",
+  "forcepoint",
+  "symantec",
+  "spamexperts",
+  "reflexion",
 ];
+
+// isCatchAllGateway: true = domain uses a gateway that accepts all mail at relay
+// level; individual mailbox existence cannot be verified regardless of SMTP access.
+export const isCatchAllGateway = (exchange: string): boolean => {
+  const lowerExchange = exchange.toLowerCase();
+  return CATCH_ALL_GATEWAYS.some((gateway) => lowerExchange.includes(gateway));
+};
+
+// isBlockingService: true = enterprise service known to block external SMTP probing.
+// Combines both catch-all gateways and SMTP-rate-limiters.
+export const isBlockingService = (exchange: string): boolean => {
+  const lowerExchange = exchange.toLowerCase();
+  return (
+    CATCH_ALL_GATEWAYS.some((g) => lowerExchange.includes(g)) ||
+    SMTP_BLOCKERS.some((g) => lowerExchange.includes(g))
+  );
+};
 
 interface SMTPResult {
   valid: boolean;
@@ -61,6 +98,7 @@ interface SMTPResult {
   smtpMessage?: string;
   catchAll?: boolean;
   blocked?: boolean;
+  portRefused?: boolean; // true = port was outright refused (ECONNREFUSED) — try next port
   accept_all?: boolean;
   validators?: any;
   definitive?: boolean; // true = SMTP gave a definitive answer (don't fall back to multi-factor)
@@ -72,20 +110,21 @@ const extractCode = (msg: string): number | null => {
   return null;
 };
 
-const isBlockingService = (exchange: string): boolean => {
-  const lowerExchange = exchange.toLowerCase();
-  return BLOCKING_SERVICES.some((service) => lowerExchange.includes(service));
-};
-
-export { isBlockingService };
+// (isBlockingService and isCatchAllGateway are exported above)
 
 export const checkSMTP = async (
   sender: string,
   recipient: string,
   exchange: string,
+  port: number = 25,
 ): Promise<SMTPResult> => {
-  const timeout = 1000 * 10; // 10 seconds (reduced for consistency)
-  const isKnownBlocker = isBlockingService(exchange);
+  const timeout = 1000 * 12; // 12 seconds
+  // Use a realistic EHLO hostname. Generic hostnames like "validator.local" are
+  // immediately flagged and dropped by enterprise spam filters, triggering the
+  // SMTP-blocked fallback even for reachable servers.
+  const ehloHostname =
+    process.env.SMTP_EHLO_HOSTNAME ||
+    (sender.includes("@") ? sender.split("@")[1] : "mail.quickmailfilter.com");
 
   return new Promise((r) => {
     let receivedData = false;
@@ -94,7 +133,7 @@ export const checkSMTP = async (
     let lastCode: number | null = null;
     let responsesReceived: number[] = [];
 
-    const socket = net.createConnection(25, exchange);
+    const socket = net.createConnection(port, exchange);
     socket.setEncoding("ascii");
     socket.setTimeout(timeout);
 
@@ -113,13 +152,25 @@ export const checkSMTP = async (
     socket.on("error", (error: any) => {
       log("SMTP error:", error.message);
       if (!closed) {
-        // Connection errors = can't verify
-        finish({
-          valid: false,
-          reason: "smtp_error",
-          blocked: true,
-          smtpMessage: `Connection failed: ${error.message}`,
-        });
+        if (error.code === "ECONNREFUSED") {
+          // Port is outright refused — not a server rejection, just port closed.
+          // Caller can retry on an alternative port.
+          finish({
+            valid: false,
+            reason: "port_refused",
+            blocked: true,
+            portRefused: true,
+            smtpMessage: `Port ${port} connection refused on ${exchange}`,
+          });
+        } else {
+          // All other connection errors (ETIMEDOUT, EHOSTUNREACH, etc.)
+          finish({
+            valid: false,
+            reason: "smtp_error",
+            blocked: true,
+            smtpMessage: `Connection failed: ${error.message}`,
+          });
+        }
       }
     });
 
@@ -149,7 +200,7 @@ export const checkSMTP = async (
     });
 
     const commands = [
-      `EHLO validator.local\r\n`,
+      `EHLO ${ehloHostname}\r\n`,
       `MAIL FROM:<${sender}>\r\n`,
       `RCPT TO:<${recipient}>\r\n`,
     ];
@@ -195,7 +246,7 @@ export const checkSMTP = async (
 
         // EHLO not supported, try HELO
         if (lastCode === 502 && cmdIndex === 1) {
-          commands[0] = `HELO validator.local\r\n`;
+          commands[0] = `HELO ${ehloHostname}\r\n`;
           cmdIndex = 0;
           sendNext();
           return;
@@ -276,8 +327,12 @@ export const checkCatchAll = async (
     .toString(36)
     .substring(7)}@${domain}`;
 
+  const ehloHostname =
+    process.env.SMTP_EHLO_HOSTNAME ||
+    (sender.includes("@") ? sender.split("@")[1] : "mail.quickmailfilter.com");
+
   return new Promise((resolve) => {
-    const timeout = 1000 * 10;
+    const timeout = 1000 * 12;
     let closed = false;
 
     const socket = net.createConnection(25, exchange);
@@ -303,7 +358,7 @@ export const checkCatchAll = async (
     });
 
     const commands = [
-      `EHLO validator.local\r\n`,
+      `EHLO ${ehloHostname}\r\n`,
       `MAIL FROM:<${sender}>\r\n`,
       `RCPT TO:<${fakeEmail}>\r\n`,
     ];
