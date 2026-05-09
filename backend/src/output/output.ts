@@ -19,6 +19,7 @@ export type SubOutputFormat = {
 type Level = ElementType<typeof OrderedLevels>;
 
 export interface GeneralOutputFormat extends SubOutputFormat {
+  isValid?: boolean;
   reason?: Level;
   disposable?: boolean;
   role?: boolean;
@@ -80,10 +81,16 @@ export const createOutput = (
   failReason?: string,
   enrichedData?: Partial<GeneralOutputFormat>,
 ): OutputFormat => {
-  const out: OutputFormat = { valid: true, validators: {}, ...enrichedData };
+  const out: OutputFormat = {
+    valid: true,
+    isValid: true,
+    validators: {},
+    ...enrichedData,
+  };
   if (failLevel) {
     out.reason = failLevel;
     out.valid = false;
+    out.isValid = false;
   }
   let valid = true;
   for (let i = 0; i < OrderedLevels.length; i++) {

@@ -218,6 +218,11 @@ function calculateDeliverabilityScore(data: any): number {
   if (!data.smtpVerified) {
     score = Math.min(score, 82);
   }
+  // Extra guardrail for enterprise relay/protection gateways:
+  // when mailbox-level probing is blocked, keep classification at risky/uncertain.
+  if (!data.smtpVerified && data.mailGatewayProtected) {
+    score = Math.min(score, 68);
+  }
 
   return Math.max(0, Math.min(100, score));
 }
@@ -347,6 +352,7 @@ export async function validate(
     domainStatus: "unknown",
     smtpVerified: false,
     smtpBlocked: false,
+    mailGatewayProtected: false,
     // New verification fields
     breached: false,
     breachCount: 0,
@@ -623,23 +629,19 @@ export async function validate(
       // Step 8: Classify the MX server type
       const isMailProtected = isBlockingService(mx.exchange);
       const isCatchAllMX = isCatchAllGateway(mx.exchange);
+      enrichedData.mailGatewayProtected = isMailProtected;
 
       if (isCatchAllMX) {
-        // TRUE CATCH-ALL GATEWAY (O365, Proofpoint, Mimecast, etc.)
-        // These services accept ALL mail at the SMTP relay level and route/filter
-        // internally. Regardless of whether we can connect on port 25, the RCPT TO
-        // response will always be 250 — making individual mailbox verification
-        // impossible. Industry standard is to classify these as "catch-all".
+        // Potential relay gateway (O365, Proofpoint, Mimecast, etc.).
+        // DO NOT auto-classify as catch-all. Some tenants still reject invalid
+        // recipients with definitive SMTP 550 responses.
         console.log(
-          "🔵 [CATCH-ALL GATEWAY]",
+          "🔵 [POTENTIAL RELAY GATEWAY]",
           mx.exchange,
-          "— accepts all mail at relay level. Marking as catch-all without SMTP attempt.",
+          "— will attempt SMTP verification when network allows.",
         );
-        enrichedData.accept_all = true;
-        enrichedData.smtpBlocked = true;
-        enrichedData.smtpVerified = false;
-        enrichedData.smtp_skipped_reason = `Catch-all relay gateway: ${mx.exchange} accepts all addresses at SMTP level`;
-      } else if (isMailProtected) {
+      }
+      if (isMailProtected) {
         console.log(
           "🛡️  [SMTP BLOCKER]",
           mx.exchange,
@@ -647,12 +649,12 @@ export async function validate(
         );
       }
 
-      // Step 9: SMTP verification — skip entirely for known catch-all gateways
+      // Step 9: SMTP verification
       // Skip SMTP on Railway (port 25 is blocked)
       const isOnRailway =
         process.env.RAILWAY_ENVIRONMENT_NAME ||
         process.env.RAILWAY_PUBLIC_DOMAIN;
-      if (options.validateSMTP && !isOnRailway && !isCatchAllMX) {
+      if (options.validateSMTP && !isOnRailway) {
         console.log("🔄 [SMTP] Starting SMTP verification on port 25...");
         let smtpResult = await checkSMTP(
           options.sender,
@@ -839,9 +841,8 @@ export async function validate(
             },
           };
         }
-      } else if ((isOnRailway && options.validateSMTP) || isCatchAllMX) {
-        // SMTP skipped: either Railway blocks port 25, or domain is a catch-all gateway.
-        // catch-all gateways already have accept_all=true set above.
+      } else if (isOnRailway && options.validateSMTP) {
+        // SMTP skipped on Railway because outbound port 25 is blocked.
         if (isOnRailway) {
           console.log(
             "⚠️ [SMTP] Skipped on Railway (port 25 blocked) - using DNS/MX validation only",
@@ -850,12 +851,7 @@ export async function validate(
           enrichedData.smtpBlocked = true;
           enrichedData.smtp_skipped_reason =
             "Port 25 blocked on Railway platform";
-        } else {
-          console.log(
-            "🔵 [SMTP] Skipped — catch-all gateway already classified",
-          );
         }
-
         // For Railway and blocked SMTP: Perform breach check for valid patterns
         try {
           console.log(
@@ -922,6 +918,11 @@ export async function validate(
       if (dnsSecurityCount >= 2 && enrichedData.mx_record) {
         scoreThreshold = Math.min(scoreThreshold, 35);
       }
+      // Hard requirement for enterprise relay-protected gateways:
+      // without mailbox-level SMTP confirmation, treat result as unverifiable.
+      if (enrichedData.mailGatewayProtected && !enrichedData.smtpVerified) {
+        scoreThreshold = Math.max(scoreThreshold, 75);
+      }
 
       const isValid = enrichedData.security_score >= scoreThreshold;
 
@@ -948,23 +949,22 @@ export async function validate(
           failReason = "Invalid email format";
         } else if (enrichedData.breached && enrichedData.breachCount > 8) {
           failReason = `Email found in ${enrichedData.breachCount} data breaches`;
+        } else if (
+          enrichedData.mailGatewayProtected &&
+          !enrichedData.smtpVerified
+        ) {
+          failReason =
+            "Mailbox could not be verified because the enterprise gateway blocks recipient-level SMTP checks";
         } else {
-          // Don't reject if score is just slightly below threshold
-          if (enrichedData.security_score >= scoreThreshold - 5) {
-            // Score is close to passing - might be worth accepting
-            failReason = null;
-            // Don't fail, we'll mark as valid with low confidence
-          } else {
-            failReason = `Insufficient validation signals (Score: ${enrichedData.security_score}/100)`;
-          }
+          failReason = `Insufficient validation signals (Score: ${enrichedData.security_score}/100)`;
         }
       }
 
-      if (failReason && enrichedData.security_score < scoreThreshold - 10) {
+      if (failReason) {
         console.log(
           `❌ [VALIDATION FAILED] Score: ${enrichedData.security_score}/100 - Reason: ${failReason}`,
         );
-      } else if (isValid || enrichedData.security_score >= scoreThreshold - 5) {
+      } else if (isValid) {
         console.log(
           `✅ [VALIDATION PASSED] Score: ${enrichedData.security_score}/100 - Confidence: ${confidenceLevel}`,
         );
@@ -996,23 +996,15 @@ export async function validate(
       console.log(
         `📊 [FINAL VALIDATION] Score: ${
           enrichedData.security_score
-        }/${scoreThreshold} | Valid: ${
-          isValid || enrichedData.security_score >= scoreThreshold - 5
-        } | Method: ${
+        }/${scoreThreshold} | Valid: ${isValid} | Method: ${
           enrichedData.verified_via
         } | Confidence: ${confidenceLevel}`,
       );
 
       // Return result based on final validity decision
-      // NOTE: Score-based validation is valid even when SMTP is blocked
-      const finalValid =
-        isValid || enrichedData.security_score >= scoreThreshold - 5;
+      const finalValid = isValid;
 
-      if (
-        !finalValid &&
-        failReason &&
-        enrichedData.security_score < scoreThreshold - 10
-      ) {
+      if (!finalValid && failReason) {
         return createOutput("smtp", failReason, enrichedData);
       }
 
@@ -1030,12 +1022,10 @@ export async function validate(
             valid: !!enrichedData.mx_record || enrichedData.security_score > 35,
           },
           smtp: {
-            valid:
-              enrichedData.smtpVerified ||
-              enrichedData.security_score > scoreThreshold,
+            valid: !!enrichedData.smtpVerified,
             reason: enrichedData.smtpVerified
               ? "Verified via SMTP"
-              : "Using multi-factor validation (DNS/Pattern/Reputation)",
+              : "Mailbox not SMTP-verified; result based on multi-factor signals",
             skipped_reason: enrichedData.smtp_skipped_reason,
           },
           pattern: { valid: enrichedData.pattern_score > 70 },

@@ -263,7 +263,11 @@ app.post("/api/validate", async (req, res) => {
     if (validate && typeof validate === "function") {
       const result = await validate(email);
       // Return the consolidated result
-      return res.json(result);
+      return res.json({
+        ...result,
+        isValid: result.isValid ?? result.valid,
+        is_valid: result.isValid ?? result.valid,
+      });
     }
 
     // Fallback: Use Disify API
@@ -320,7 +324,8 @@ app.post("/api/validate-bulk", async (req, res) => {
           return validate(email)
             .then((result) => ({
               email,
-              is_valid: result.isValid,
+              is_valid: result.isValid ?? result.valid,
+              isValid: result.isValid ?? result.valid,
               ...result,
             }))
             .catch((err) => ({

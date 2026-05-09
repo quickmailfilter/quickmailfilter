@@ -9,7 +9,7 @@
     "server": "node ../backend/server.js",
     "setup:backend": "cd ../backend && npm install",
     "build:backend": "cd ../backend && npm run build",
-    "dev:all": "concurrently \"npm run server\" \"npm run dev\""
+    "dev:all": "concurrently \"cd ../backend && npm run watch-ts\" \"cd ../backend && npm run watch-node\" \"npm run dev\""
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

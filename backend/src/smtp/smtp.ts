@@ -110,6 +110,11 @@ const extractCode = (msg: string): number | null => {
   return null;
 };
 
+const hasAnyToken = (message: string, tokens: string[]): boolean => {
+  const lower = message.toLowerCase();
+  return tokens.some((token) => lower.includes(token));
+};
+
 // (isBlockingService and isCatchAllGateway are exported above)
 
 export const checkSMTP = async (
@@ -254,12 +259,59 @@ export const checkSMTP = async (
 
         // Definite failures - mailbox doesn't exist
         if (lastCode === 550 || lastCode === 551 || lastCode === 553) {
+          const response = lastResponse.trim().toLowerCase();
+          const mailboxMissingTokens = [
+            "user unknown",
+            "unknown user",
+            "no such user",
+            "no such recipient",
+            "mailbox unavailable",
+            "mailbox not found",
+            "recipient not found",
+            "unknown mailbox",
+            "recipient address rejected",
+            "invalid recipient",
+          ];
+          const policyOrSecurityTokens = [
+            "access denied",
+            "policy",
+            "blocked",
+            "not permitted",
+            "relay access denied",
+            "authentication required",
+            "spam",
+            "blacklist",
+            "5.7.",
+            "security",
+            "rate limit",
+          ];
+
+          const looksLikeMailboxMissing = hasAnyToken(
+            response,
+            mailboxMissingTokens,
+          );
+          const looksLikePolicyBlock = hasAnyToken(response, policyOrSecurityTokens);
+
+          // Only trust as definitive when the server message clearly indicates
+          // unknown/invalid recipient. Otherwise treat as probe-blocked.
+          if (looksLikeMailboxMissing && !looksLikePolicyBlock) {
+            finish({
+              valid: false,
+              reason: "mailbox_not_found",
+              smtpCode: lastCode,
+              smtpMessage: lastResponse.trim(),
+              definitive: true, // safe to trust as mailbox non-existent
+            });
+            return;
+          }
+
           finish({
             valid: false,
-            reason: "mailbox_not_found",
+            reason: "smtp_error",
             smtpCode: lastCode,
-            smtpMessage: "Mailbox does not exist",
-            definitive: true, // CRITICAL: This MUST be trusted - don't fall back to multi-factor
+            smtpMessage: lastResponse.trim(),
+            blocked: true,
+            definitive: false,
           });
           return;
         }
