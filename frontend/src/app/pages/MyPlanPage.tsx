@@ -11,6 +11,7 @@ import { useApp, PricingPlan } from "../context/AppContext";
 import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { PaymentCheckout } from "../components/PaymentCheckout";
 import { toast } from "sonner";
+import { getQuotaStatus } from "../utils/quota";
 
 export const MyPlanPage = () => {
   const { user, isAuthenticated, pricingPlans, upgradePlan } = useApp();
@@ -32,6 +33,9 @@ export const MyPlanPage = () => {
   const onetimePlans = displayPlans.filter((p) => p.planType === "onetime");
 
   const currentPlanName = user?.plan?.toLowerCase() || "free";
+  const quotaStatus = user ? getQuotaStatus(user) : null;
+  const hasNonExpiringCredits =
+    user?.planType === "onetime" || user?.billingPeriod === "one-time";
 
   const handlePlanCTA = (plan: PricingPlan) => {
     if (currentPlanName === plan.name.toLowerCase()) {
@@ -76,7 +80,7 @@ export const MyPlanPage = () => {
             <CardTitle className="text-2xl">Your Current Plan</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-4 gap-6">
               <div>
                 <p className="text-sm text-gray-600 uppercase font-bold mb-1">
                   Plan Name
@@ -101,6 +105,16 @@ export const MyPlanPage = () => {
                   {user.usedQuota.toLocaleString()}
                 </p>
               </div>
+              <div>
+                <p className="text-sm text-gray-600 uppercase font-bold mb-1">
+                  Daily Quota
+                </p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {quotaStatus?.dailyCredits
+                    ? `${quotaStatus.dailyRemaining}/${quotaStatus.dailyCredits}`
+                    : "No limit"}
+                </p>
+              </div>
             </div>
 
             {/* Progress Bar */}
@@ -120,8 +134,14 @@ export const MyPlanPage = () => {
                 />
               </div>
               <p className="text-xs text-gray-500">
-                {(user.monthlyQuota - user.usedQuota).toLocaleString()} credits
-                remaining
+                {(
+                  quotaStatus?.effectiveMonthlyRemaining || 0
+                ).toLocaleString()}{" "}
+                credits remaining in this pack
+                {hasNonExpiringCredits ? ", credits never expire" : ""}
+                {quotaStatus?.dailyCredits
+                  ? `, ${quotaStatus.dailyRemaining.toLocaleString()} available today`
+                  : ""}
               </p>
             </div>
           </CardContent>
@@ -399,7 +419,7 @@ export const MyPlanPage = () => {
               🚀 One-Time Top-ups
             </h2>
             <p className="text-gray-600">
-              Need extra credits? Purchase one-time top-ups that never expire.
+              Need extra credits? Purchase one-time credits that never expire.
             </p>
           </div>
 
@@ -436,6 +456,9 @@ export const MyPlanPage = () => {
                       </p>
                       <p className="text-2xl font-bold text-orange-600">
                         {plan.quota.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-green-600 font-medium mt-1">
+                        Never expires
                       </p>
                     </div>
 
@@ -538,6 +561,9 @@ export const MyPlanPage = () => {
                             <p className="text-2xl font-bold text-orange-600">
                               {plan.quota.toLocaleString()}
                             </p>
+                      <p className="text-xs text-green-600 font-medium mt-1">
+                        Never expires
+                      </p>
                           </div>
 
                           <div className="bg-white p-3 rounded-lg border border-gray-100">

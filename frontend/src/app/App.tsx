@@ -115,11 +115,11 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]">
+    <div className="h-screen overflow-hidden bg-[#F8FAFC]">
       {/* Sidebar - Desktop: fixed, Mobile: drawer */}
       <div
         className={`
-        fixed inset-0 z-50 lg:relative lg:z-0
+        fixed inset-0 z-50 lg:inset-y-0 lg:left-0 lg:right-auto lg:z-30 lg:block lg:w-64
         ${sidebarOpen ? "block" : "hidden lg:block"}
       `}
       >
@@ -135,7 +135,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex h-full min-w-0 flex-col lg:pl-64">
         {/* Dashboard Top Header (Mobile only) */}
         <header className="lg:hidden bg-white border-b border-[#E5E7EB] h-16 flex items-center px-4 shrink-0 sticky top-0 z-40">
           <button
@@ -154,7 +154,9 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          {children}
+        </main>
       </div>
     </div>
   );

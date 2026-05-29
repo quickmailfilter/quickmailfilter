@@ -30,9 +30,13 @@ import {
   Legend,
 } from "recharts";
 import { StatusBadge } from "../components/StatusBadge";
+import { getQuotaStatus } from "../utils/quota";
 
 export const UserDashboard = () => {
   const { user, verificationHistory } = useApp();
+  const quotaStatus = user ? getQuotaStatus(user) : null;
+  const hasNonExpiringCredits =
+    user?.planType === "onetime" || user?.billingPeriod === "one-time";
 
   const validCount = verificationHistory.filter(
     (v) => v.status === "valid",
@@ -78,7 +82,7 @@ export const UserDashboard = () => {
 
       {/* KPI Cards */}
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6"
         data-aos="fade-up"
       >
         <KPICard
@@ -93,11 +97,26 @@ export const UserDashboard = () => {
           color="blue"
         />
         <KPICard
-          title="Monthly Quota"
-          value={`${user ? (user.monthlyQuota || 0) - (user.usedQuota || 0) : 0}`}
+          title="Pack Credits"
+          value={`${quotaStatus?.effectiveMonthlyRemaining || 0}`}
           icon={Upload}
-          subtitle={`${user?.usedQuota || 0} / ${user?.monthlyQuota || 0} used`}
+          subtitle={
+            hasNonExpiringCredits
+              ? `${user?.usedQuota || 0} used, credits never expire`
+              : `${user?.usedQuota || 0} used, ${quotaStatus?.daysRemaining || 0} days left`
+          }
           color="green"
+        />
+        <KPICard
+          title="Daily Quota"
+          value={`${quotaStatus?.dailyRemaining || 0}`}
+          icon={AlertTriangle}
+          subtitle={
+            quotaStatus?.dailyCredits
+              ? `${quotaStatus.dailyUsedQuota} / ${quotaStatus.dailyCredits} used today`
+              : "No daily limit"
+          }
+          color="blue"
         />
         <KPICard
           title="Total Verified"

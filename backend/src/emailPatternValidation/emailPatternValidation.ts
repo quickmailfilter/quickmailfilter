@@ -1,3 +1,5 @@
+import { getEmailFormatError, normalizeEmail } from '../regex/regex'
+
 /**
  * Advanced email pattern and format validation
  * Detects suspicious patterns, format issues, and common typos
@@ -12,7 +14,8 @@ export const validateEmailPattern = (email: string): {
   const warnings: string[] = []
   let score = 100
 
-  const [localPart, domain] = email.split('@')
+  const normalizedEmail = normalizeEmail(email)
+  const [localPart, domain] = normalizedEmail.split('@')
 
   // Local part validations
   if (localPart) {
@@ -109,11 +112,11 @@ export const validateEmailPattern = (email: string): {
     }
   }
 
-  // Overall format check using regex
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(email)) {
-    issues.push('Email does not match standard format')
-    score -= 20
+  // Overall strict format check shared with request validation
+  const formatError = getEmailFormatError(normalizedEmail)
+  if (formatError) {
+    issues.push(formatError)
+    score -= 30
   }
 
   // Normalize score

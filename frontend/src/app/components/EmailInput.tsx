@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Mail, Loader2 } from "lucide-react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import { validateEmailInput } from "../utils/emailValidation";
 
 interface EmailInputProps {
   onVerify: (email: string) => void;
@@ -17,26 +18,18 @@ export const EmailInput: React.FC<EmailInputProps> = ({
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!email.trim()) {
-      setError("Please enter an email address");
+    const validation = validateEmailInput(email);
+    if (!validation.valid) {
+      setError(validation.error || "Please enter a valid email address");
       return;
     }
 
-    if (!validateEmail(email)) {
-      setError("Please enter a valid email address");
-      return;
-    }
-
-    onVerify(email);
+    setEmail(validation.normalized);
+    onVerify(validation.normalized);
   };
 
   return (

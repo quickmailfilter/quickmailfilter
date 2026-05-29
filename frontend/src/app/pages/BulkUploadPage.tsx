@@ -9,23 +9,24 @@ import { FileSpreadsheet, AlertCircle, FileText, CheckCircle2 } from 'lucide-rea
 import { Alert, AlertDescription } from '../components/ui/alert';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { validateEmailInput } from '../utils/emailValidation';
+import { getQuotaStatus } from '../utils/quota';
 
 export const BulkUploadPage = () => {
   const { uploadBulkFile, user } = useApp();
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extractedEmails, setExtractedEmails] = useState<string[]>([]);
+  const [invalidEmailCount, setInvalidEmailCount] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [parsing, setParsing] = useState(false);
-
-  const validateEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
+  const quotaStatus = user ? getQuotaStatus(user) : null;
 
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file);
     setParsing(true);
     setExtractedEmails([]);
+    setInvalidEmailCount(0);
 
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
 
@@ -40,18 +41,31 @@ export const BulkUploadPage = () => {
         emails = await parseTXT(file);
       }
 
-      // Filter valid looking emails and remove duplicates
+      const candidates = emails
+        .map(e => e?.toString().trim())
+        .filter((e): e is string => !!e && e.includes('@'));
+      const validationResults = candidates.map(email => validateEmailInput(email));
       const validEmails = Array.from(new Set(
-        emails
-          .map(e => e?.toString().trim())
-          .filter(e => e && validateEmail(e))
+        validationResults
+          .filter(result => result.valid)
+          .map(result => result.normalized)
       ));
+      const invalidCount = validationResults.filter(result => !result.valid).length;
 
       setExtractedEmails(validEmails);
+      setInvalidEmailCount(invalidCount);
       if (validEmails.length === 0) {
-        toast.error('No valid email addresses found in the file');
+        toast.error(
+          invalidCount > 0
+            ? `No valid email addresses found. ${invalidCount} invalid email value${invalidCount === 1 ? '' : 's'} skipped.`
+            : 'No email addresses found in the file',
+        );
       } else {
-        toast.success(`Found ${validEmails.length} email addresses`);
+        toast.success(
+          invalidCount > 0
+            ? `Found ${validEmails.length} valid email addresses. Skipped ${invalidCount} invalid value${invalidCount === 1 ? '' : 's'}.`
+            : `Found ${validEmails.length} valid email addresses`,
+        );
       }
     } catch (error) {
       console.error('Parsing error:', error);
@@ -157,15 +171,29 @@ export const BulkUploadPage = () => {
       </div>
 
       {/* Quota Warning */}
-      {user && user.usedQuota >= user.monthlyQuota * 0.9 && (
+      {user &&
+        quotaStatus &&
+        quotaStatus.effectiveMonthlyRemaining <= user.monthlyQuota * 0.1 && (
         <Alert className="border-amber-200 bg-amber-50">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800">
             You're approaching your monthly quota limit. 
-            {user.monthlyQuota - user.usedQuota} verifications remaining.
+            {quotaStatus.effectiveMonthlyRemaining} verifications remaining in
+            this pack.
           </AlertDescription>
         </Alert>
       )}
+
+      {quotaStatus?.dailyCredits ? (
+        <Alert className="border-blue-200 bg-blue-50">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800">
+            Daily quota: {quotaStatus.dailyRemaining} of{" "}
+            {quotaStatus.dailyCredits} credits available today. More credits
+            unlock tomorrow.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {/* Upload Card */}
       <Card className="border-[#E5E7EB] shadow-sm">
@@ -188,6 +216,11 @@ export const BulkUploadPage = () => {
                   <div>
                     <p className="font-semibold text-gray-900">{selectedFile.name}</p>
                     <p className="text-xs text-blue-600 font-medium">{extractedEmails.length} valid emails detected</p>
+                    {invalidEmailCount > 0 && (
+                      <p className="text-xs text-amber-600 font-medium">
+                        {invalidEmailCount} invalid email value{invalidEmailCount === 1 ? '' : 's'} skipped
+                      </p>
+                    )}
                   </div>
                 </div>
                 {extractedEmails.length > 0 && <CheckCircle2 className="w-6 h-6 text-green-500" />}

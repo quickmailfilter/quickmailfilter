@@ -222,12 +222,126 @@ app.get("/api/debug/config", (req, res) => {
   });
 });
 
+const normalizeEmailInput = (email) => (email || "").trim().toLowerCase();
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const getEmailFormatError = (emailInput) => {
+  const email = normalizeEmailInput(emailInput);
+
+  if (!email) return "Email not provided";
+  if (/\s/.test(email)) return "Email cannot contain spaces";
+  if (email.length > 254) return "Email exceeds maximum length";
+
+  const parts = email.split("@");
+  if (parts.length !== 2) return 'Email must contain exactly one "@" symbol';
+
+  const [localPart, domain] = parts;
+  if (!localPart || !domain) {
+    return "Email must include both local and domain parts";
+  }
+  if (localPart.length > 64) return "Local part exceeds 64 characters";
+  if (
+    localPart.startsWith(".") ||
+    localPart.endsWith(".") ||
+    localPart.includes("..")
+  ) {
+    return "Local part cannot start, end, or contain consecutive dots";
+  }
+  if (!/^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+$/i.test(localPart)) {
+    return "Local part contains invalid characters";
+  }
+
+  if (domain.length > 253) return "Domain exceeds 253 characters";
+  const labels = domain.split(".");
+  if (labels.length < 2) return 'Must contain a "." after the "@"';
+  if (labels.some((label) => !label)) return "Domain contains empty parts";
+  if (
+    labels.some(
+      (label) =>
+        label.length > 63 ||
+        label.startsWith("-") ||
+        label.endsWith("-") ||
+        !/^[A-Z0-9-]+$/i.test(label),
+    )
+  ) {
+    return "Domain contains invalid characters";
+  }
+  if (!/^[A-Z]{2,}$/i.test(labels[labels.length - 1])) {
+    return "Domain must end with a valid extension";
+  }
+
+  return undefined;
+};
+
+const startOfUtcDay = (date) =>
+  Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+
+const isSameUtcDay = (a, b = new Date()) => {
+  if (!a || Number.isNaN(a.getTime())) return false;
+  return startOfUtcDay(a) === startOfUtcDay(b);
+};
+
+const getQuotaStatus = (userData) => {
+  const isOneTimePlan =
+    userData.planType === "onetime" || userData.billingPeriod === "one-time";
+  const monthlyQuota = userData.monthlyQuota || 0;
+  const usedQuota = userData.usedQuota || 0;
+  const dailyCredits = isOneTimePlan ? 0 : userData.dailyCredits || 0;
+  const dailyUsedQuota = userData.dailyUsedQuota || 0;
+  const monthlyRemaining = Math.max(0, monthlyQuota - usedQuota);
+
+  if (dailyCredits <= 0) {
+    return {
+      monthlyRemaining,
+      effectiveMonthlyRemaining: monthlyRemaining,
+      dailyCredits: 0,
+      dailyUsedQuota: 0,
+      dailyRemaining: monthlyRemaining,
+      daysRemaining: 0,
+    };
+  }
+
+  const periodDays = Math.max(1, Math.ceil(monthlyQuota / dailyCredits));
+  const periodStart =
+    userData.quotaPeriodStartedAt?.toDate?.() ||
+    userData.lastDailyReset?.toDate?.() ||
+    new Date();
+  const elapsedDays = Math.max(
+    0,
+    Math.floor((startOfUtcDay(new Date()) - startOfUtcDay(periodStart)) / DAY_MS),
+  );
+  const daysRemaining = Math.max(0, periodDays - elapsedDays);
+  const dailyRemaining = Math.max(0, dailyCredits - dailyUsedQuota);
+  const scheduledRemaining =
+    daysRemaining > 0
+      ? dailyRemaining + Math.max(0, daysRemaining - 1) * dailyCredits
+      : 0;
+
+  return {
+    monthlyRemaining,
+    effectiveMonthlyRemaining: Math.min(monthlyRemaining, scheduledRemaining),
+    dailyCredits,
+    dailyUsedQuota,
+    dailyRemaining,
+    daysRemaining,
+  };
+};
+
 // Email validation endpoint
 app.post("/api/validate", async (req, res) => {
   const { email, userId } = req.body;
 
   if (!email || typeof email !== "string") {
     return res.status(400).json({ error: "Invalid email parameter" });
+  }
+
+  const normalizedEmail = normalizeEmailInput(email);
+  const formatError = getEmailFormatError(normalizedEmail);
+  if (formatError) {
+    return res.status(400).json({
+      error: "Invalid email format",
+      message: formatError,
+    });
   }
 
   // Check daily limit if userId is provided
@@ -238,17 +352,57 @@ app.post("/api/validate", async (req, res) => {
 
       if (userDoc.exists) {
         const userData = userDoc.data();
-        const dailyCredits = userData.dailyCredits || 0;
-        const dailyUsedQuota = userData.dailyUsedQuota || 0;
+        const lastDailyReset = userData.lastDailyReset?.toDate?.();
+        const quotaPeriodStartedAt =
+          userData.quotaPeriodStartedAt?.toDate?.() || lastDailyReset;
+
+        if ((userData.dailyCredits || 0) > 0 && !userData.quotaPeriodStartedAt) {
+          const periodStart =
+            quotaPeriodStartedAt || admin.firestore.Timestamp.now().toDate();
+          await userDoc.ref.update({
+            quotaPeriodStartedAt: admin.firestore.Timestamp.fromDate(periodStart),
+          });
+          userData.quotaPeriodStartedAt =
+            admin.firestore.Timestamp.fromDate(periodStart);
+        }
+
+        if (
+          (userData.dailyCredits || 0) > 0 &&
+          !isSameUtcDay(lastDailyReset)
+        ) {
+          await userDoc.ref.update({
+            dailyUsedQuota: 0,
+            lastDailyReset: admin.firestore.Timestamp.now(),
+          });
+          userData.dailyUsedQuota = 0;
+          userData.lastDailyReset = admin.firestore.Timestamp.now();
+        }
+
+        const quotaStatus = getQuotaStatus(userData);
+
+        if (quotaStatus.effectiveMonthlyRemaining <= 0) {
+          return res.status(429).json({
+            error: "Quota exceeded",
+            message:
+              "No credits are available. Please purchase more credits or upgrade your plan.",
+            remainingToday: quotaStatus.dailyRemaining,
+            remainingInPack: quotaStatus.effectiveMonthlyRemaining,
+            daysRemaining: quotaStatus.daysRemaining,
+          });
+        }
 
         // Check if user exceeded daily limit
-        if (dailyCredits > 0 && dailyUsedQuota >= dailyCredits) {
+        if (
+          quotaStatus.dailyCredits > 0 &&
+          quotaStatus.dailyRemaining <= 0
+        ) {
           return res.status(429).json({
             error: "Daily limit exceeded",
-            message: `You have reached your daily limit of ${dailyCredits} verifications. Limit resets at midnight UTC.`,
-            dailyCredits,
-            dailyUsedQuota,
+            message: `You have reached your daily limit of ${quotaStatus.dailyCredits} verifications. More credits unlock tomorrow.`,
+            dailyCredits: quotaStatus.dailyCredits,
+            dailyUsedQuota: quotaStatus.dailyUsedQuota,
             remainingToday: 0,
+            daysRemaining: quotaStatus.daysRemaining,
           });
         }
       }
@@ -261,7 +415,7 @@ app.post("/api/validate", async (req, res) => {
   try {
     // Use built-in validator if available
     if (validate && typeof validate === "function") {
-      const result = await validate(email);
+      const result = await validate(normalizedEmail);
       // Return the consolidated result
       return res.json({
         ...result,
@@ -271,10 +425,13 @@ app.post("/api/validate", async (req, res) => {
     }
 
     // Fallback: Use Disify API
-    console.log("Using Disify API fallback for:", email);
-    const disifyRes = await axios.get(`https://disify.com/api/email/${email}`, {
-      timeout: 5000,
-    });
+    console.log("Using Disify API fallback for:", normalizedEmail);
+    const disifyRes = await axios.get(
+      `https://disify.com/api/email/${encodeURIComponent(normalizedEmail)}`,
+      {
+        timeout: 5000,
+      },
+    );
 
     res.json({
       valid:
@@ -317,9 +474,40 @@ app.post("/api/validate-bulk", async (req, res) => {
     return res.status(400).json({ error: "Maximum 1000 emails per request" });
   }
 
+  const emailInputs = emails.map((email) => {
+    const emailString = typeof email === "string" ? email : "";
+    const normalizedEmail = normalizeEmailInput(emailString);
+    const formatError =
+      typeof email === "string"
+        ? getEmailFormatError(normalizedEmail)
+        : "Email must be a string";
+
+    return {
+      email: normalizedEmail || String(email ?? ""),
+      formatError,
+    };
+  });
+
   try {
     const results = await Promise.all(
-      emails.map((email) => {
+      emailInputs.map(({ email, formatError }) => {
+        if (formatError) {
+          return Promise.resolve({
+            email,
+            valid: false,
+            is_valid: false,
+            isValid: false,
+            reason: "regex",
+            error: formatError,
+            validators: {
+              regex: {
+                valid: false,
+                reason: formatError,
+              },
+            },
+          });
+        }
+
         if (validate && typeof validate === "function") {
           return validate(email)
             .then((result) => ({
@@ -336,7 +524,9 @@ app.post("/api/validate-bulk", async (req, res) => {
         } else {
           // Fallback for bulk
           return axios
-            .get(`https://disify.com/api/email/${email}`, { timeout: 2000 })
+            .get(`https://disify.com/api/email/${encodeURIComponent(email)}`, {
+              timeout: 2000,
+            })
             .then((r) => ({
               email,
               is_valid: r.data.dns && !r.data.disposable,
@@ -347,7 +537,7 @@ app.post("/api/validate-bulk", async (req, res) => {
     );
 
     res.json({
-      total: emails.length,
+      total: emailInputs.length,
       results,
     });
   } catch (error) {
@@ -719,19 +909,34 @@ app.get("/api/credits/daily-status/:userId", async (req, res) => {
     }
 
     const userData = userDoc.data();
-    const dailyCredits = userData.dailyCredits || 0;
-    const dailyUsedQuota = userData.dailyUsedQuota || 0;
-    const remainingToday = Math.max(0, dailyCredits - dailyUsedQuota);
     const lastDailyReset = userData.lastDailyReset?.toDate() || new Date();
+    if ((userData.dailyCredits || 0) > 0 && !userData.quotaPeriodStartedAt) {
+      await userDoc.ref.update({
+        quotaPeriodStartedAt: admin.firestore.Timestamp.fromDate(lastDailyReset),
+      });
+      userData.quotaPeriodStartedAt =
+        admin.firestore.Timestamp.fromDate(lastDailyReset);
+    }
+    if ((userData.dailyCredits || 0) > 0 && !isSameUtcDay(lastDailyReset)) {
+      await userDoc.ref.update({
+        dailyUsedQuota: 0,
+        lastDailyReset: admin.firestore.Timestamp.now(),
+      });
+      userData.dailyUsedQuota = 0;
+      userData.lastDailyReset = admin.firestore.Timestamp.now();
+    }
+    const quotaStatus = getQuotaStatus(userData);
 
     res.json({
       success: true,
       userId,
-      dailyCredits,
-      dailyUsedQuota,
-      remainingToday,
-      lastDailyReset,
-      message: `${remainingToday}/${dailyCredits} credits remaining today`,
+      dailyCredits: quotaStatus.dailyCredits,
+      dailyUsedQuota: quotaStatus.dailyUsedQuota,
+      remainingToday: quotaStatus.dailyRemaining,
+      remainingInPack: quotaStatus.effectiveMonthlyRemaining,
+      daysRemaining: quotaStatus.daysRemaining,
+      lastDailyReset: userData.lastDailyReset?.toDate?.() || lastDailyReset,
+      message: `${quotaStatus.dailyRemaining}/${quotaStatus.dailyCredits} credits remaining today`,
     });
   } catch (error) {
     console.error("Error fetching daily credit status:", error.message);
@@ -769,18 +974,35 @@ app.get("/api/credits/check-daily-limit/:userId", async (req, res) => {
     }
 
     const userData = userDoc.data();
-    const dailyCredits = userData.dailyCredits || 0;
-    const dailyUsedQuota = userData.dailyUsedQuota || 0;
-    const exceededDaily = dailyCredits > 0 && dailyUsedQuota >= dailyCredits;
-    const remainingToday = Math.max(0, dailyCredits - dailyUsedQuota);
+    const lastDailyReset = userData.lastDailyReset?.toDate() || new Date();
+    if ((userData.dailyCredits || 0) > 0 && !userData.quotaPeriodStartedAt) {
+      await userDoc.ref.update({
+        quotaPeriodStartedAt: admin.firestore.Timestamp.fromDate(lastDailyReset),
+      });
+      userData.quotaPeriodStartedAt =
+        admin.firestore.Timestamp.fromDate(lastDailyReset);
+    }
+    if ((userData.dailyCredits || 0) > 0 && !isSameUtcDay(lastDailyReset)) {
+      await userDoc.ref.update({
+        dailyUsedQuota: 0,
+        lastDailyReset: admin.firestore.Timestamp.now(),
+      });
+      userData.dailyUsedQuota = 0;
+      userData.lastDailyReset = admin.firestore.Timestamp.now();
+    }
+    const quotaStatus = getQuotaStatus(userData);
+    const exceededDaily =
+      quotaStatus.dailyCredits > 0 && quotaStatus.dailyRemaining <= 0;
 
     res.json({
       success: true,
       userId,
       exceededDaily,
-      dailyCredits,
-      dailyUsedQuota,
-      remainingToday,
+      dailyCredits: quotaStatus.dailyCredits,
+      dailyUsedQuota: quotaStatus.dailyUsedQuota,
+      remainingToday: quotaStatus.dailyRemaining,
+      remainingInPack: quotaStatus.effectiveMonthlyRemaining,
+      daysRemaining: quotaStatus.daysRemaining,
     });
   } catch (error) {
     console.error("Error checking daily limit:", error.message);
@@ -965,18 +1187,18 @@ app.post("/api/contact/submit", async (req, res) => {
     });
   }
 
-  // Basic email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
+  const emailFormatError = getEmailFormatError(email);
+  if (emailFormatError) {
     return res.status(400).json({
       error: "Invalid email format",
+      message: emailFormatError,
     });
   }
 
   const submission = {
     id: `contact-${Date.now()}`,
     name: name.trim(),
-    email: email.trim().toLowerCase(),
+    email: normalizeEmailInput(email),
     phone: phone?.trim() || "",
     subject: subject.trim(),
     message: message.trim(),

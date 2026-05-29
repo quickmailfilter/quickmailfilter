@@ -59,6 +59,14 @@ export const Navbar = () => {
                   Docs
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#2563EB] transition-all group-hover:w-full" />
                 </Link>
+                <Link to="/contact">
+                  <Button
+                    variant="outline"
+                    className="border-[#2563EB] text-[#2563EB] hover:bg-blue-50 transition-all text-sm font-medium"
+                  >
+                    Contact
+                  </Button>
+                </Link>
                 <Link to="/login">
                   <Button
                     variant="ghost"
@@ -141,6 +149,13 @@ export const Navbar = () => {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Docs
+                </Link>
+                <Link
+                  to="/contact"
+                  className="px-3 py-2 text-gray-600 hover:text-[#2563EB] hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Contact
                 </Link>
                 <div className="grid grid-cols-2 gap-2 mt-4 px-3">
                   <Link to="/login" onClick={() => setMobileMenuOpen(false)}>

@@ -44,7 +44,6 @@ export const AdminSettingsPage = () => {
     active: true,
     planType: "subscription",
     dailyCredits: 500,
-    creditAmount: 500,
     billingPeriod: "monthly",
   });
 
@@ -331,18 +330,16 @@ export const AdminSettingsPage = () => {
                             {plan.description}
                           </p>
                           <div className="mt-4 flex gap-6">
-                            <div>
-                              <p className="text-xs text-gray-400 uppercase font-bold">
-                                {plan.planType === "subscription"
-                                  ? "Daily Credits"
-                                  : "Credit Amount"}
-                              </p>
-                              <p className="font-mono">
-                                {plan.dailyCredits ||
-                                  plan.creditAmount ||
-                                  "N/A"}
-                              </p>
-                            </div>
+                            {plan.planType === "subscription" && (
+                              <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold">
+                                  Daily Credits
+                                </p>
+                                <p className="font-mono">
+                                  {plan.dailyCredits || "N/A"}
+                                </p>
+                              </div>
+                            )}
                             <div>
                               <p className="text-xs text-gray-400 uppercase font-bold">
                                 Price
@@ -417,7 +414,6 @@ export const AdminSettingsPage = () => {
                                 active: plan.active,
                                 planType: plan.planType || "subscription",
                                 dailyCredits: plan.dailyCredits,
-                                creditAmount: plan.creditAmount,
                                 billingPeriod: plan.billingPeriod,
                               });
                               setPlanType(plan.planType || "subscription");
@@ -475,7 +471,6 @@ export const AdminSettingsPage = () => {
                             active: true,
                             planType: "subscription",
                             dailyCredits: 500,
-                            creditAmount: 500,
                             billingPeriod: "monthly",
                           });
                           setPlanType("subscription");
@@ -549,40 +544,26 @@ export const AdminSettingsPage = () => {
                     />
                   </div>
 
-                  <div>
-                    <Label className="text-xs uppercase font-bold text-gray-400">
-                      {planType === "subscription"
-                        ? "Daily Credits"
-                        : "Total Credits"}
-                    </Label>
-                    <Input
-                      type="number"
-                      value={
-                        planType === "subscription"
-                          ? newPlan.dailyCredits || 0
-                          : newPlan.creditAmount || 0
-                      }
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value) || 0;
-                        if (planType === "subscription") {
+                  {planType === "subscription" && (
+                    <div>
+                      <Label className="text-xs uppercase font-bold text-gray-400">
+                        Daily Credits
+                      </Label>
+                      <Input
+                        type="number"
+                        value={newPlan.dailyCredits || 0}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
                           setNewPlan({
                             ...newPlan,
                             dailyCredits: value,
                             quota: value * 30,
                           });
-                        } else {
-                          setNewPlan({
-                            ...newPlan,
-                            creditAmount: value,
-                            quota: value,
-                          });
-                        }
-                      }}
-                      placeholder={
-                        planType === "subscription" ? "e.g. 500" : "e.g. 1000"
-                      }
-                    />
-                  </div>
+                        }}
+                        placeholder="e.g. 500"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <Label className="text-xs uppercase font-bold text-gray-400">
@@ -606,7 +587,7 @@ export const AdminSettingsPage = () => {
                     <p className="text-xs text-gray-500 mt-1">
                       {planType === "subscription"
                         ? "Enter total monthly quota"
-                        : "Enter total one-time credits"}
+                        : "Enter total one-time credits. These credits never expire."}
                     </p>
                   </div>
 
@@ -649,15 +630,23 @@ export const AdminSettingsPage = () => {
                           );
                         }
 
-                        const planToSave = {
-                          ...newPlan,
-                          features: newPlan.features.length
-                            ? newPlan.features
+                        const defaultFeatures =
+                          planType === "onetime"
+                            ? [
+                                "Email Verification",
+                                "Bulk Support",
+                                "Credits never expire",
+                              ]
                             : [
                                 "Email Verification",
                                 "Bulk Support",
                                 "24/7 Priority Support",
-                              ],
+                              ];
+                        const planToSave = {
+                          ...newPlan,
+                          features: newPlan.features.length
+                            ? newPlan.features
+                            : defaultFeatures,
                         };
 
                         let success = false;
@@ -688,7 +677,6 @@ export const AdminSettingsPage = () => {
                             active: true,
                             planType: planType,
                             dailyCredits: 500,
-                            creditAmount: 500,
                             billingPeriod:
                               planType === "subscription"
                                 ? "monthly"
@@ -717,7 +705,6 @@ export const AdminSettingsPage = () => {
                             active: true,
                             planType: "subscription",
                             dailyCredits: 500,
-                            creditAmount: 500,
                             billingPeriod: "monthly",
                           });
                           setPlanType("subscription");

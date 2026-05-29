@@ -42,6 +42,7 @@ import {
   Zap,
   AlertCircle,
 } from "lucide-react";
+import { getQuotaStatus } from "../utils/quota";
 
 export const AdminUsersPage = () => {
   const {
@@ -89,8 +90,6 @@ export const AdminUsersPage = () => {
       let creditsDisplay = "";
       if (plan.planType === "subscription" && plan.dailyCredits) {
         creditsDisplay = `(${plan.dailyCredits}/day)`;
-      } else if (plan.planType === "onetime" && plan.creditAmount) {
-        creditsDisplay = `(${plan.creditAmount})`;
       }
       return `${plan.name} - ₹${plan.price} ${creditsDisplay} (${plan.quota})`.trim();
     }
@@ -324,8 +323,11 @@ export const AdminUsersPage = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredUsers.map((user) => (
-                    <TableRow key={user.id} className="hover:bg-accent/20">
+                  filteredUsers.map((user) => {
+                    const quotaStatus = getQuotaStatus(user);
+
+                    return (
+                      <TableRow key={user.id} className="hover:bg-accent/20">
                       <TableCell>
                         <div>
                           <div className="font-medium">{user.name}</div>
@@ -359,6 +361,12 @@ export const AdminUsersPage = () => {
                               }}
                             />
                           </div>
+                          {quotaStatus.dailyCredits > 0 && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Today: {quotaStatus.dailyRemaining} /{" "}
+                              {quotaStatus.dailyCredits} left
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -445,24 +453,44 @@ export const AdminUsersPage = () => {
                                   {user.monthlyQuota > 0 && (
                                     <div className="flex items-center justify-between">
                                       <span className="text-gray-600 text-xs">
-                                        Quota:
+                                        Pack Credits:
                                       </span>
                                       <span className="font-semibold text-[#1E3A8A]">
+                                        {quotaStatus.effectiveMonthlyRemaining} /{" "}
                                         {user.monthlyQuota}
                                       </span>
                                     </div>
                                   )}
                                   {user.dailyCredits &&
                                     user.dailyCredits > 0 && (
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-gray-600 text-xs">
-                                          Daily:
-                                        </span>
-                                        <span className="font-semibold text-blue-600 flex items-center gap-1">
-                                          <Zap className="w-2.5 h-2.5" />
-                                          {user.dailyCredits}
-                                        </span>
-                                      </div>
+                                      <>
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-gray-600 text-xs">
+                                            Daily Quota:
+                                          </span>
+                                          <span className="font-semibold text-blue-600 flex items-center gap-1">
+                                            <Zap className="w-2.5 h-2.5" />
+                                            {quotaStatus.dailyUsedQuota} /{" "}
+                                            {user.dailyCredits} used
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-gray-600 text-xs">
+                                            Available Today:
+                                          </span>
+                                          <span className="font-semibold text-green-600">
+                                            {quotaStatus.dailyRemaining}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-gray-600 text-xs">
+                                            Days Left:
+                                          </span>
+                                          <span className="font-semibold text-[#1E3A8A]">
+                                            {quotaStatus.daysRemaining}
+                                          </span>
+                                        </div>
+                                      </>
                                     )}
                                 </div>
                               </div>
@@ -502,8 +530,6 @@ export const AdminUsersPage = () => {
                                           {plan.name} - ₹{plan.price}
                                           {plan.dailyCredits &&
                                             ` (${plan.dailyCredits}/day)`}
-                                          {plan.creditAmount &&
-                                            ` (${plan.creditAmount})`}
                                         </SelectItem>
                                       ))}
                                     </SelectContent>
@@ -539,16 +565,6 @@ export const AdminUsersPage = () => {
                                                 <span className="font-semibold text-green-600 flex items-center gap-0.5">
                                                   <Zap className="w-2.5 h-2.5" />
                                                   {plan.dailyCredits}
-                                                </span>
-                                              </div>
-                                            )}
-                                            {plan.creditAmount && (
-                                              <div className="flex items-center justify-between">
-                                                <span className="text-gray-600">
-                                                  One-Time:
-                                                </span>
-                                                <span className="font-semibold text-green-600">
-                                                  {plan.creditAmount}
                                                 </span>
                                               </div>
                                             )}
@@ -590,10 +606,11 @@ export const AdminUsersPage = () => {
                                 <div className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2">
                                   <div className="flex justify-between items-center text-xs mb-1">
                                     <span className="text-gray-600">
-                                      Usage this month
+                                      Pack usage
                                     </span>
                                     <span className="font-semibold text-[#1E3A8A]">
-                                      {user.usedQuota} / {user.monthlyQuota}
+                                      {user.usedQuota} used,{" "}
+                                      {quotaStatus.effectiveMonthlyRemaining} left
                                     </span>
                                   </div>
                                   <div className="w-full h-1.5 bg-gray-300 rounded-full overflow-hidden">
@@ -604,6 +621,36 @@ export const AdminUsersPage = () => {
                                       }}
                                     />
                                   </div>
+                                  {quotaStatus.dailyCredits > 0 && (
+                                    <div className="rounded-md bg-white border border-gray-200 p-2 space-y-1">
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-gray-600">
+                                          Daily usage
+                                        </span>
+                                        <span className="font-semibold text-blue-700">
+                                          {quotaStatus.dailyUsedQuota} /{" "}
+                                          {quotaStatus.dailyCredits}
+                                        </span>
+                                      </div>
+                                      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-green-600"
+                                          style={{
+                                            width: `${Math.min(
+                                              100,
+                                              (quotaStatus.dailyUsedQuota /
+                                                quotaStatus.dailyCredits) *
+                                                100,
+                                            )}%`,
+                                          }}
+                                        />
+                                      </div>
+                                      <p className="text-xs text-gray-500">
+                                        {quotaStatus.dailyRemaining} credits can
+                                        be used today. More unlock tomorrow.
+                                      </p>
+                                    </div>
+                                  )}
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -784,8 +831,9 @@ export const AdminUsersPage = () => {
                           </DialogContent>
                         </Dialog>
                       </TableCell>
-                    </TableRow>
-                  ))
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

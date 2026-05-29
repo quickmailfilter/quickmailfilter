@@ -456,7 +456,7 @@ export const PricingPage = () => {
             </h2>
             <p className="text-gray-600">
               Perfect for occasional users. No recurring charges, use credits
-              whenever you need them.
+              whenever you need them. One-time credits never expire.
             </p>
           </div>
 
@@ -493,17 +493,16 @@ export const PricingPage = () => {
                             </p>
                           </div>
 
-                          {/* Credit Amount */}
+                          {/* Credits Included */}
                           <div className="bg-white p-3 rounded-lg border border-amber-100">
                             <p className="text-xs text-gray-400 uppercase font-bold mb-1">
                               Credits Included
                             </p>
                             <p className="text-2xl font-bold text-orange-600">
-                              {(
-                                plan.creditAmount ||
-                                plan.quota ||
-                                0
-                              ).toLocaleString()}
+                              {(plan.quota || 0).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-green-600 font-medium mt-1">
+                              Never expires
                             </p>
                           </div>
 
@@ -561,11 +560,10 @@ export const PricingPage = () => {
                             Credits
                           </p>
                           <p className="text-lg font-bold text-orange-600">
-                            {(
-                              plan.creditAmount ||
-                              plan.quota ||
-                              0
-                            ).toLocaleString()}
+                            {(plan.quota || 0).toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-green-600 font-medium">
+                            Never expires
                           </p>
                         </div>
 

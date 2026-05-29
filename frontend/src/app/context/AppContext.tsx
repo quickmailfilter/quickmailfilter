@@ -38,6 +38,8 @@ import {
 import { auth, db } from "../config/firebaseConfig";
 import axios from "axios";
 import { toast } from "sonner";
+import { validateEmailInput } from "../utils/emailValidation";
+import { getQuotaStatus, isDailyQuotaStale } from "../utils/quota";
 
 export type UserRole = "user" | "admin";
 
@@ -60,7 +62,6 @@ export interface PricingPlan {
   active: boolean;
   planType?: "subscription" | "onetime"; // new field
   dailyCredits?: number; // for subscription plans
-  creditAmount?: number; // for one-time plans
   billingPeriod?: "monthly" | "daily" | "one-time"; // billing frequency
 }
 
@@ -70,11 +71,14 @@ export interface User {
   email: string;
   role: UserRole;
   plan: string;
+  planType?: "subscription" | "onetime";
+  billingPeriod?: "monthly" | "daily" | "one-time";
   monthlyQuota: number;
   usedQuota: number;
   dailyCredits?: number; // Daily allowance for subscription plans
   dailyUsedQuota?: number; // Credits used today
   lastDailyReset?: Date; // Last time daily quota was reset
+  quotaPeriodStartedAt?: Date; // Start of the current pack allocation window
   createdAt: Date;
   disabled?: boolean;
 }
@@ -346,11 +350,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               email: firebaseUser.email || "",
               role: "admin",
               plan: adminData.plan || "enterprise",
+              planType: adminData.planType,
+              billingPeriod: adminData.billingPeriod,
               monthlyQuota: adminData.monthlyQuota || QUOTA_LIMITS.enterprise,
               usedQuota: adminData.usedQuota || 0,
               dailyCredits: adminData.dailyCredits || 0,
               dailyUsedQuota: adminData.dailyUsedQuota || 0,
               lastDailyReset: adminData.lastDailyReset?.toDate() || new Date(),
+              quotaPeriodStartedAt:
+                adminData.quotaPeriodStartedAt?.toDate() ||
+                adminData.lastDailyReset?.toDate() ||
+                new Date(),
               createdAt: adminData.createdAt?.toDate() || new Date(),
               disabled: adminData.disabled || false,
             };
@@ -385,11 +395,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 email: firebaseUser.email || "",
                 role: userData.role || "user",
                 plan: userData.plan || "free",
+                planType: userData.planType,
+                billingPeriod: userData.billingPeriod,
                 monthlyQuota: userData.monthlyQuota || QUOTA_LIMITS.free,
                 usedQuota: userData.usedQuota || 0,
                 dailyCredits: userData.dailyCredits || 0,
                 dailyUsedQuota: userData.dailyUsedQuota || 0,
                 lastDailyReset: userData.lastDailyReset?.toDate() || new Date(),
+                quotaPeriodStartedAt:
+                  userData.quotaPeriodStartedAt?.toDate() ||
+                  userData.lastDailyReset?.toDate() ||
+                  new Date(),
                 createdAt: userData.createdAt?.toDate() || new Date(),
                 disabled: userData.disabled || false,
               };
@@ -423,11 +439,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 email: firebaseUser.email,
                 role: "user",
                 plan: "free",
+                planType: "subscription",
+                billingPeriod: "monthly",
                 monthlyQuota: QUOTA_LIMITS.free,
                 usedQuota: 0,
                 dailyCredits: 0,
                 dailyUsedQuota: 0,
                 lastDailyReset: new Date(),
+                quotaPeriodStartedAt: new Date(),
                 createdAt: new Date(),
                 disabled: false,
               });
@@ -438,11 +457,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 email: firebaseUser.email || "",
                 role: "user",
                 plan: "free",
+                planType: "subscription",
+                billingPeriod: "monthly",
                 monthlyQuota: QUOTA_LIMITS.free,
                 usedQuota: 0,
                 dailyCredits: 0,
                 dailyUsedQuota: 0,
                 lastDailyReset: new Date(),
+                quotaPeriodStartedAt: new Date(),
                 createdAt: new Date(),
                 disabled: false,
               };
@@ -494,6 +516,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                 name: userData.name || prevUser.name,
                 email: userData.email || prevUser.email,
                 plan: userData.plan || prevUser.plan,
+                planType: userData.planType ?? prevUser.planType,
+                billingPeriod: userData.billingPeriod ?? prevUser.billingPeriod,
                 monthlyQuota: userData.monthlyQuota ?? prevUser.monthlyQuota,
                 usedQuota: userData.usedQuota ?? prevUser.usedQuota,
                 dailyCredits: userData.dailyCredits ?? prevUser.dailyCredits,
@@ -501,6 +525,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                   userData.dailyUsedQuota ?? prevUser.dailyUsedQuota,
                 lastDailyReset:
                   userData.lastDailyReset?.toDate() || prevUser.lastDailyReset,
+                quotaPeriodStartedAt:
+                  userData.quotaPeriodStartedAt?.toDate() ||
+                  prevUser.quotaPeriodStartedAt,
                 disabled: userData.disabled ?? prevUser.disabled,
               };
             });
@@ -660,11 +687,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           email: data.email,
           role: data.role || "user",
           plan: data.plan || "free",
+          planType: data.planType,
+          billingPeriod: data.billingPeriod,
           monthlyQuota: data.monthlyQuota || QUOTA_LIMITS.free,
           usedQuota: data.usedQuota || 0,
           dailyCredits: data.dailyCredits || 0,
           dailyUsedQuota: data.dailyUsedQuota || 0,
           lastDailyReset: data.lastDailyReset?.toDate() || new Date(),
+          quotaPeriodStartedAt:
+            data.quotaPeriodStartedAt?.toDate() ||
+            data.lastDailyReset?.toDate() ||
+            new Date(),
           createdAt: data.createdAt?.toDate() || new Date(),
           disabled: data.disabled || false,
         });
@@ -722,11 +755,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         email,
         role: "user",
         plan: "free",
+        planType: "subscription",
+        billingPeriod: "monthly",
         monthlyQuota: QUOTA_LIMITS.free,
         usedQuota: 0,
         dailyCredits: 0,
         dailyUsedQuota: 0,
         lastDailyReset: Timestamp.now(),
+        quotaPeriodStartedAt: Timestamp.now(),
         createdAt: Timestamp.now(),
         disabled: false,
       });
@@ -779,11 +815,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         name,
         email,
         plan: "enterprise",
+        planType: "subscription",
+        billingPeriod: "monthly",
         monthlyQuota: QUOTA_LIMITS.enterprise,
         usedQuota: 0,
         dailyCredits: 0,
         dailyUsedQuota: 0,
         lastDailyReset: Timestamp.now(),
+        quotaPeriodStartedAt: Timestamp.now(),
         createdAt: Timestamp.now(),
         disabled: false,
         role: "admin",
@@ -893,11 +932,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           email: firebaseUser.email,
           role: "user",
           plan: "free",
+          planType: "subscription",
+          billingPeriod: "monthly",
           monthlyQuota: QUOTA_LIMITS.free,
           usedQuota: 0,
           dailyCredits: 0,
           dailyUsedQuota: 0,
           lastDailyReset: Timestamp.now(),
+          quotaPeriodStartedAt: Timestamp.now(),
           createdAt: Timestamp.now(),
           disabled: false,
         });
@@ -947,22 +989,87 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const resetDailyUsageIfNeeded = async (appUser: User): Promise<User> => {
+    if (
+      appUser.planType === "onetime" ||
+      appUser.billingPeriod === "one-time"
+    ) {
+      return appUser;
+    }
+
+    if (!appUser.dailyCredits || appUser.dailyCredits <= 0) {
+      return appUser;
+    }
+
+    let normalizedUser = appUser;
+    if (!appUser.quotaPeriodStartedAt) {
+      const periodStartedAt = appUser.lastDailyReset || new Date();
+      try {
+        const userRef = doc(db, "users", appUser.id);
+        await updateDoc(userRef, {
+          quotaPeriodStartedAt: Timestamp.fromDate(periodStartedAt),
+        });
+      } catch (error) {
+        console.warn("Failed to set quota period start:", error);
+      }
+      normalizedUser = {
+        ...appUser,
+        quotaPeriodStartedAt: periodStartedAt,
+      };
+      setUser((prev) => (prev?.id === appUser.id ? normalizedUser : prev));
+    }
+
+    if (!isDailyQuotaStale(normalizedUser.lastDailyReset)) {
+      return normalizedUser;
+    }
+
+    const resetAt = new Date();
+    try {
+      const userRef = doc(db, "users", appUser.id);
+      await updateDoc(userRef, {
+        dailyUsedQuota: 0,
+        lastDailyReset: Timestamp.fromDate(resetAt),
+      });
+    } catch (error) {
+      console.warn("Failed to reset stale daily quota:", error);
+    }
+
+    const refreshedUser = {
+      ...normalizedUser,
+      dailyUsedQuota: 0,
+      lastDailyReset: resetAt,
+    };
+    setUser((prev) => (prev?.id === appUser.id ? refreshedUser : prev));
+    return refreshedUser;
+  };
+
   // Verify email using backend validator API (public - no auth required)
   const verifyEmail = async (email: string): Promise<EmailVerification> => {
     try {
-      // Check daily limits if user has subscription plan with daily credits
-      if (user && user.dailyCredits && user.dailyCredits > 0) {
-        if ((user.dailyUsedQuota || 0) >= user.dailyCredits) {
+      const inputValidation = validateEmailInput(email);
+      if (!inputValidation.valid) {
+        throw new Error(inputValidation.error || "Invalid email address");
+      }
+
+      const quotaUser = user ? await resetDailyUsageIfNeeded(user) : null;
+      if (quotaUser) {
+        const quotaStatus = getQuotaStatus(quotaUser);
+        if (quotaStatus.monthlyLimitReached) {
           throw new Error(
-            `Daily limit reached! You have used ${user.dailyUsedQuota || 0}/${user.dailyCredits} credits today. Limit resets at midnight UTC.`,
+            "Your available credits are finished. Please purchase more credits or upgrade your plan.",
+          );
+        }
+        if (quotaStatus.dailyCredits > 0 && quotaStatus.dailyLimitReached) {
+          throw new Error(
+            `Daily limit reached! You have used ${quotaStatus.dailyUsedQuota}/${quotaStatus.dailyCredits} credits today. More credits unlock tomorrow.`,
           );
         }
       }
 
       // Call the real email validator backend API with userId for daily limit check
       const response = await axios.post(`${VALIDATOR_API_URL}/api/validate`, {
-        email: email.toLowerCase().trim(),
-        userId: user?.id, // Backend will verify daily limits
+        email: inputValidation.normalized,
+        userId: quotaUser?.id, // Backend will verify daily limits
       });
 
       const validatorResult = response.data;
@@ -1016,7 +1123,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       const verification: EmailVerification = {
         id: `ver-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-        email,
+        email: inputValidation.normalized,
         status: emailStatus,
         // Use validators object for accurate representation of what passed/failed
         formatValid: validatorResult.validators?.regex?.valid ?? true,
@@ -1036,11 +1143,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         reason: emailReason,
         confidence: validatorResult.security_score ?? 75,
         timestamp: new Date(),
-        userId: user?.id || "guest",
+        userId: quotaUser?.id || "guest",
       };
 
       // Save to Firestore and update quota if user is logged in
-      if (user) {
+      if (quotaUser) {
         try {
           const verificationRef = doc(collection(db, "verifications"));
           verification.id = verificationRef.id;
@@ -1060,7 +1167,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           });
 
           // Increment usedQuota and dailyUsedQuota in Firestore atomically
-          const userRef = doc(db, "users", user.id);
+          const userRef = doc(db, "users", quotaUser.id);
           await updateDoc(userRef, {
             usedQuota: increment(1),
             dailyUsedQuota: increment(1),
@@ -1089,6 +1196,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (error.response?.status === 429) {
         throw new Error("Too many requests. Please try again later.");
       }
+      if (error.response?.status === 400) {
+        throw new Error(
+          error.response.data?.message ||
+            error.response.data?.error ||
+            "Invalid email address",
+        );
+      }
       throw new Error(error.message || "Failed to verify email");
     }
   };
@@ -1109,12 +1223,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       const totalEmails = extractedEmails?.length || 0;
+      const refreshedUser = await resetDailyUsageIfNeeded(user);
 
       // Check quota upfront
-      const remainingQuota = Math.max(0, user.monthlyQuota - user.usedQuota);
+      const quotaStatus = getQuotaStatus(refreshedUser);
+      const remainingQuota = quotaStatus.effectiveMonthlyRemaining;
+      const todayRemaining = quotaStatus.dailyRemaining;
       if (remainingQuota === 0) {
         toast.info(
-          "Your monthly quota is fully used. Please wait for the next month or upgrade your plan.",
+          "Your available credits are fully used. Please wait for the next day/renewal or upgrade your plan.",
+        );
+      } else if (quotaStatus.dailyCredits > 0 && totalEmails > todayRemaining) {
+        toast.info(
+          `You have ${todayRemaining} credits available today. Remaining daily credits unlock tomorrow.`,
         );
       } else if (totalEmails > remainingQuota) {
         toast.info(
@@ -1179,14 +1300,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       // Calculate remaining quota
-      const remainingQuota = Math.max(0, user.monthlyQuota - user.usedQuota);
-      const emailsToProcess = Math.min(emails.length, remainingQuota);
+      const refreshedUser = await resetDailyUsageIfNeeded(user);
+      const quotaStatus = getQuotaStatus(refreshedUser);
+      const remainingQuota = quotaStatus.effectiveMonthlyRemaining;
+      const todayRemaining =
+        quotaStatus.dailyCredits > 0 ? quotaStatus.dailyRemaining : remainingQuota;
+      const emailsToProcess = Math.min(
+        emails.length,
+        remainingQuota,
+        todayRemaining,
+      );
 
       // Show warning if user is exceeding their quota
-      if (emails.length > remainingQuota) {
+      if (quotaStatus.dailyCredits > 0 && emails.length > todayRemaining) {
+        toast.warning(
+          `Your plan allows ${quotaStatus.dailyCredits} emails/day. Processing ${emailsToProcess} now; more credits unlock tomorrow.`,
+        );
+      } else if (emails.length > remainingQuota) {
         if (remainingQuota === 0) {
           toast.warning(
-            `Your monthly quota is fully used. Please wait for the next month or upgrade your plan.`,
+            `Your available credits are fully used. Please wait for renewal or upgrade your plan.`,
           );
         } else {
           toast.warning(
@@ -1214,8 +1347,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const email = emails[i].trim();
         if (!email) continue;
 
+        const inputValidation = validateEmailInput(email);
+        if (!inputValidation.valid) {
+          verificationResults.push({
+            id: `invalid-${Date.now()}-${i}`,
+            email: inputValidation.normalized || email,
+            status: "invalid",
+            formatValid: false,
+            domainExists: false,
+            mxRecordFound: false,
+            disposable: false,
+            roleBased: false,
+            catchAll: false,
+            reason: inputValidation.error || "Invalid email format",
+            confidence: 0,
+            timestamp: new Date(),
+            userId: user.id,
+          });
+          invalidCount++;
+          continue;
+        }
+
         try {
-          const verification = await verifyEmail(email);
+          const verification = await verifyEmail(inputValidation.normalized);
           verificationResults.push(verification);
 
           // Count by status
@@ -1386,16 +1540,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const newQuota = planConfig.quota;
-    const dailyCredits = planConfig.dailyCredits || 0;
+    const isOneTimePlan =
+      planConfig.planType === "onetime" ||
+      planConfig.billingPeriod === "one-time";
+    const dailyCredits = isOneTimePlan ? 0 : planConfig.dailyCredits || 0;
 
     try {
       const userRef = doc(db, "users", user.id);
       await updateDoc(userRef, {
         plan: normalizedPlan,
+        planType: planConfig.planType || "subscription",
+        billingPeriod: planConfig.billingPeriod || "monthly",
         monthlyQuota: newQuota,
         dailyCredits,
+        usedQuota: 0,
         dailyUsedQuota: 0, // Reset daily used quota on plan upgrade
         lastDailyReset: Timestamp.now(),
+        quotaPeriodStartedAt: Timestamp.now(),
       });
 
       // Record payment document
@@ -1416,10 +1577,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           ? {
               ...prev,
               plan: normalizedPlan,
+              planType: planConfig.planType || "subscription",
+              billingPeriod: planConfig.billingPeriod || "monthly",
               monthlyQuota: newQuota,
               dailyCredits,
+              usedQuota: 0,
               dailyUsedQuota: 0,
               lastDailyReset: new Date(),
+              quotaPeriodStartedAt: new Date(),
             }
           : prev,
       );
@@ -1446,20 +1611,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (normalizedPlan === "free") {
           // Handle free plan
           firestoreUpdates.monthlyQuota = QUOTA_LIMITS["free"] || 50;
+          firestoreUpdates.planType = "subscription";
+          firestoreUpdates.billingPeriod = "monthly";
           firestoreUpdates.dailyCredits = 0;
           firestoreUpdates.usedQuota = 0;
           firestoreUpdates.dailyUsedQuota = 0;
           firestoreUpdates.lastDailyReset = Timestamp.now();
+          firestoreUpdates.quotaPeriodStartedAt = Timestamp.now();
         } else {
           const planConfig = pricingPlans.find(
             (p) => p.name.toLowerCase().trim() === normalizedPlan,
           );
 
           if (planConfig) {
+            const isOneTimePlan =
+              planConfig.planType === "onetime" ||
+              planConfig.billingPeriod === "one-time";
             firestoreUpdates.monthlyQuota = planConfig.quota;
-            firestoreUpdates.dailyCredits = planConfig.dailyCredits || 0;
+            firestoreUpdates.planType = planConfig.planType || "subscription";
+            firestoreUpdates.billingPeriod =
+              planConfig.billingPeriod ||
+              (planConfig.planType === "onetime" ? "one-time" : "monthly");
+            firestoreUpdates.dailyCredits = isOneTimePlan
+              ? 0
+              : planConfig.dailyCredits || 0;
+            firestoreUpdates.usedQuota = 0;
             firestoreUpdates.dailyUsedQuota = 0; // Reset daily usage
             firestoreUpdates.lastDailyReset = Timestamp.now();
+            firestoreUpdates.quotaPeriodStartedAt = Timestamp.now();
           } else {
             console.warn(
               `Plan not found in pricing plans: ${updates.plan}. Using existing quota.`,
@@ -1478,19 +1657,35 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               const normalizedPlan = updates.plan.toLowerCase().trim();
               if (normalizedPlan === "free") {
                 newData.monthlyQuota = QUOTA_LIMITS["free"] || 50;
+                newData.planType = "subscription";
+                newData.billingPeriod = "monthly";
                 newData.dailyCredits = 0;
                 newData.usedQuota = 0;
                 newData.dailyUsedQuota = 0;
                 newData.lastDailyReset = new Date();
+                newData.quotaPeriodStartedAt = new Date();
               } else {
                 const planConfig = pricingPlans.find(
                   (p) => p.name.toLowerCase().trim() === normalizedPlan,
                 );
                 if (planConfig) {
+                  const isOneTimePlan =
+                    planConfig.planType === "onetime" ||
+                    planConfig.billingPeriod === "one-time";
                   newData.monthlyQuota = planConfig.quota;
-                  newData.dailyCredits = planConfig.dailyCredits || 0;
+                  newData.planType = planConfig.planType || "subscription";
+                  newData.billingPeriod =
+                    planConfig.billingPeriod ||
+                    (planConfig.planType === "onetime"
+                      ? "one-time"
+                      : "monthly");
+                  newData.dailyCredits = isOneTimePlan
+                    ? 0
+                    : planConfig.dailyCredits || 0;
+                  newData.usedQuota = 0;
                   newData.dailyUsedQuota = 0;
                   newData.lastDailyReset = new Date();
+                  newData.quotaPeriodStartedAt = new Date();
                 }
               }
             }
@@ -1591,21 +1786,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   ): Promise<{ success: boolean; message: string }> => {
     try {
       // Validate email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
+      const inputValidation = validateEmailInput(email);
+      if (!inputValidation.valid) {
         return {
           success: false,
-          message: "Please enter a valid email address",
+          message:
+            inputValidation.error || "Please enter a valid email address",
         };
       }
 
       // Send password reset email with custom URL
-      await sendPasswordResetEmail(auth, email, {
+      await sendPasswordResetEmail(auth, inputValidation.normalized, {
         url: `${window.location.origin}/reset-password`,
         handleCodeInApp: false,
       });
 
-      console.log(`Password reset email sent to ${email}`);
+      console.log(`Password reset email sent to ${inputValidation.normalized}`);
       return {
         success: true,
         message: "Password reset email sent successfully!",

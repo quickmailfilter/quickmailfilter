@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { validateEmailInput } from "../utils/emailValidation";
 
 export const BulkProcessPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,9 +41,31 @@ export const BulkProcessPage = () => {
 
     for (let i = 0; i < emailsToProcess.length; i++) {
       const email = emailsToProcess[i];
+      const inputValidation = validateEmailInput(email);
+
+      if (!inputValidation.valid) {
+        emailResults.push({
+          id: `invalid-${Date.now()}-${i}`,
+          email: inputValidation.normalized || email,
+          status: "invalid",
+          formatValid: false,
+          domainExists: false,
+          mxRecordFound: false,
+          disposable: false,
+          roleBased: false,
+          catchAll: false,
+          reason: inputValidation.error || "Invalid email format",
+          confidence: 0,
+          timestamp: new Date(),
+          userId: upload.userId,
+        });
+        setResults([...emailResults]);
+        setProgress(((i + 1) / emailsToProcess.length) * 100);
+        continue;
+      }
 
       try {
-        const result = await verifyEmail(email);
+        const result = await verifyEmail(inputValidation.normalized);
         emailResults.push(result);
         setResults([...emailResults]);
         setProgress(((i + 1) / emailsToProcess.length) * 100);

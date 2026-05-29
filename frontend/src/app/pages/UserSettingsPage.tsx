@@ -22,6 +22,7 @@ import { User, Lock, CreditCard, Key, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Link } from "react-router-dom";
+import { getQuotaStatus } from "../utils/quota";
 
 export const UserSettingsPage = () => {
   const { user, updateUserProfile, updateUserPassword, payments } = useApp();
@@ -60,7 +61,10 @@ export const UserSettingsPage = () => {
     setPasswordLoading(false);
   };
 
+  const quotaStatus = user ? getQuotaStatus(user) : null;
   const quotaPercentage = user ? (user.usedQuota / user.monthlyQuota) * 100 : 0;
+  const hasNonExpiringCredits =
+    user?.planType === "onetime" || user?.billingPeriod === "one-time";
 
   return (
     <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6 sm:space-y-8">
@@ -237,9 +241,20 @@ export const UserSettingsPage = () => {
                     {user?.plan} Plan
                   </div>
                   <div className="text-sm text-gray-600 font-medium">
-                    {user?.monthlyQuota.toLocaleString()} verifications per
-                    month
+                    {quotaStatus?.effectiveMonthlyRemaining.toLocaleString()} of{" "}
+                    {user?.monthlyQuota.toLocaleString()} pack credits remaining
                   </div>
+                  {hasNonExpiringCredits ? (
+                    <div className="text-sm text-green-600 font-medium mt-1">
+                      One-time credits never expire
+                    </div>
+                  ) : null}
+                  {quotaStatus?.dailyCredits ? (
+                    <div className="text-sm text-blue-600 font-medium mt-1">
+                      Daily quota: {quotaStatus.dailyRemaining} /{" "}
+                      {quotaStatus.dailyCredits} available today
+                    </div>
+                  ) : null}
                 </div>
                 <Button
                   variant="outline"
@@ -252,7 +267,7 @@ export const UserSettingsPage = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500 font-medium">
-                    Monthly Usage
+                    Pack Usage
                   </span>
                   <span className="font-bold text-[#1E3A8A]">
                     {user?.usedQuota.toLocaleString()} /{" "}
@@ -262,12 +277,36 @@ export const UserSettingsPage = () => {
                 </div>
                 <Progress value={quotaPercentage} className="h-3" />
                 <p className="text-xs sm:text-sm text-gray-500 font-medium">
-                  {user
-                    ? (user.monthlyQuota - user.usedQuota).toLocaleString()
-                    : 0}{" "}
-                  verifications remaining this month
+                  {quotaStatus?.effectiveMonthlyRemaining.toLocaleString() || 0}{" "}
+                  verifications remaining in this pack
+                  {hasNonExpiringCredits ? " (never expires)" : ""}
                 </p>
               </div>
+
+              {quotaStatus?.dailyCredits ? (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500 font-medium">
+                      Daily Usage
+                    </span>
+                    <span className="font-bold text-[#1E3A8A]">
+                      {quotaStatus.dailyUsedQuota.toLocaleString()} /{" "}
+                      {quotaStatus.dailyCredits.toLocaleString()}
+                    </span>
+                  </div>
+                  <Progress
+                    value={
+                      (quotaStatus.dailyUsedQuota / quotaStatus.dailyCredits) *
+                      100
+                    }
+                    className="h-3"
+                  />
+                  <p className="text-xs sm:text-sm text-gray-500 font-medium">
+                    {quotaStatus.dailyRemaining.toLocaleString()} credits can be
+                    used today. More unlock tomorrow.
+                  </p>
+                </div>
+              ) : null}
 
               {quotaPercentage >= 80 && (
                 <Alert className="border-amber-200 bg-amber-50">

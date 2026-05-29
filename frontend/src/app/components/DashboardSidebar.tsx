@@ -15,11 +15,15 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { getQuotaStatus } from "../utils/quota";
 
 export const DashboardSidebar = ({ onClose }: { onClose?: () => void }) => {
   const location = useLocation();
   const { user, logout } = useApp();
   const isAdmin = user?.role === "admin";
+  const quotaStatus = user ? getQuotaStatus(user) : null;
+  const hasNonExpiringCredits =
+    user?.planType === "onetime" || user?.billingPeriod === "one-time";
 
   const userLinks = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -121,11 +125,11 @@ export const DashboardSidebar = ({ onClose }: { onClose?: () => void }) => {
       {!isAdmin && user && (
         <div className="mt-8 p-4 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB]">
           <div className="text-xs text-gray-600 mb-2 font-medium uppercase tracking-wider">
-            Monthly Quota
+            Pack Credits
           </div>
           <div className="flex items-baseline gap-1 mb-2">
             <span className="text-2xl font-bold text-[#1E3A8A]">
-              {(user.monthlyQuota - user.usedQuota).toLocaleString()}
+              {quotaStatus?.effectiveMonthlyRemaining.toLocaleString()}
             </span>
             <span className="text-sm text-gray-400 font-medium">
               / {user.monthlyQuota.toLocaleString()}
@@ -142,6 +146,17 @@ export const DashboardSidebar = ({ onClose }: { onClose?: () => void }) => {
           <div className="text-xs text-gray-500 mt-2 font-medium">
             {user.usedQuota.toLocaleString()} verifications used
           </div>
+          {hasNonExpiringCredits ? (
+            <div className="text-xs text-green-600 mt-1 font-medium">
+              Credits never expire
+            </div>
+          ) : null}
+          {quotaStatus?.dailyCredits ? (
+            <div className="text-xs text-blue-600 mt-1 font-medium">
+              Today: {quotaStatus.dailyRemaining} /{" "}
+              {quotaStatus.dailyCredits} left
+            </div>
+          ) : null}
         </div>
       )}
     </div>
